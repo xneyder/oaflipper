@@ -1,6 +1,7 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/libs/supabase/server";
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+
+export const dynamic = "force-dynamic";
 
 import { insertOrUpdateDataToDB, analyzeAndUpdateProducts } from '../../../helpers/db';
 import { findMatchingAmazonImages } from '../../../helpers/openai';
@@ -10,11 +11,10 @@ const prisma = new PrismaClient();
 
 export default async function handler(req, res) {
     
-    const supabase = createRouteHandlerClient({ cookies });
-    const { data } = await supabase.auth.getSession();
-    const { session } = data;
-    
-    if (!session) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+      
+    if (!user) {
         // Not Signed in
         return NextResponse.json({ error: "Not signed in" }, { status: 401 });
     }
