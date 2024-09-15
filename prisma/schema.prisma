@@ -1,0 +1,61 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas   = ["public"]
+}
+
+// Product model
+model Product {
+  id              Int            @id @default(autoincrement())
+  title           String
+  image_urls      String[] // Array of URLs
+  product_url     String         @unique
+  source          String
+  last_seen_price String?
+  in_stock        Boolean        @default(false)
+  created_date    DateTime       @default(now())
+  updated_date    DateTime       @updatedAt
+  product_matches ProductMatch[] @relation("Product_ProductMatches") // Renamed relation
+
+  @@index([product_url]) // Index on product_url
+  @@schema("public")
+}
+
+// AmazonProduct model
+model AmazonProduct {
+  id                   Int            @id @default(autoincrement())
+  asin                 String         @unique
+  title                String         @db.Text
+  product_url          String         @unique @db.Text
+  image_url            String         @db.Text
+  amazon_buy_box_count Int?
+  current_sellers      Int?
+  created_date         DateTime       @default(now())
+  updated_date         DateTime       @updatedAt
+  product_matches      ProductMatch[] @relation("AmazonProduct_ProductMatches") // Renamed relation
+
+  @@index([asin]) // Index on asin
+  @@schema("public")
+}
+
+// ProductMatch model (many-to-many relation between Product and AmazonProduct)
+model ProductMatch {
+  id                Int      @id @default(autoincrement())
+  product_id        Int
+  amazon_product_id Int
+  created_date      DateTime @default(now())
+  updated_date      DateTime @updatedAt
+
+  product        Product       @relation(fields: [product_id], references: [id], onDelete: Cascade, name: "Product_ProductMatches")
+  amazon_product AmazonProduct @relation(fields: [amazon_product_id], references: [id], onDelete: Cascade, name: "AmazonProduct_ProductMatches")
+
+  @@unique([product_id, amazon_product_id]) // Composite unique index
+  @@index([product_id, amazon_product_id])
+  @@schema("public")
+}
