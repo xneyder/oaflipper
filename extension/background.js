@@ -1,5 +1,3 @@
-// background.js
-
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'searchAmazon') {
         const productTitle = message.product.title;
@@ -45,6 +43,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         // Return true to indicate that the response is asynchronous
         return true;
+    } else if (message.action === 'captureScreenshot') {
+        chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: 'png' }, function (dataUrl) {
+            if (chrome.runtime.lastError || !dataUrl) {
+                sendResponse({ error: 'Failed to capture screenshot' });
+            } else {
+                sendResponse({ screenshot: dataUrl });
+            }
+        });
+
+        return true;
     } else if (message.action === 'closeCurrentTab') {
         console.log("Closing tab with ID:", sender.tab.id);
         chrome.tabs.remove(sender.tab.id);
@@ -61,7 +69,6 @@ async function injectScriptWithRetry(tabId, productTitle, sendResponse, attempt)
     const maxAttempts = 3;
     const retryDelay = 2000; // 2 seconds
 
-    // Check if the tab is still valid
     chrome.tabs.get(tabId, function(tab) {
         if (chrome.runtime.lastError || !tab) {
             console.error(`Error getting tab or tab is closed: ${chrome.runtime.lastError ? chrome.runtime.lastError.message : 'Tab not found'}`);
@@ -69,7 +76,6 @@ async function injectScriptWithRetry(tabId, productTitle, sendResponse, attempt)
             return;
         }
 
-        // Adding a sleep to wait for the page to stabilize before injection
         sleep(3000).then(() => {
             chrome.scripting.executeScript(
                 {
@@ -131,7 +137,6 @@ async function injectScriptWithRetry(tabId, productTitle, sendResponse, attempt)
         });
     });
 }
-
 
 function performAmazonSearch(title) {
     return new Promise((resolve) => {
@@ -245,7 +250,6 @@ function performAmazonSearch(title) {
         }, 5000); // Wait for 5 seconds before using the fallback
     });
 }
-
 
 // Function to scroll and close the tab with a random delay
 function scrollAndCloseTab() {

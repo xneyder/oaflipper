@@ -10,12 +10,28 @@ datasource db {
   schemas   = ["public"]
 }
 
+// Prisma schema definition
+model profiles {
+  id          String   @id
+  name        String?
+  email       String?
+  image       String?
+  customer_id String?
+  price_id    String?
+  has_access  Boolean  @default(false)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@schema("public")
+}
+
 // Product model
 model Product {
   id              Int            @id @default(autoincrement())
   title           String
   image_urls      String[] // Array of URLs
   product_url     String         @unique
+  screenshot_url  String?
   source          String
   last_seen_price String?
   in_stock        Boolean        @default(false)

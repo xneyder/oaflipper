@@ -1,53 +1,60 @@
 (async function () {
-    // Ensure the script runs after the page has loaded
     if (document.readyState !== 'complete') {
         await new Promise((resolve) => window.addEventListener('load', resolve));
     }
 
     console.log('CVS Scraper Extension: Starting processing...');
-    
+
     await scrapeCvsPromotions();
-    
+
     async function scrapeCvsPromotions() {
         try {
             await waitForElement('div.css-1dbjc4n.r-18u37iz.r-tzz3ar', 10000);
             
             const products = document.querySelectorAll('div.css-1dbjc4n.r-18u37iz.r-tzz3ar');
             console.log(`Found ${products.length} products on the page.`);
-            
-            // You can uncomment the for-loop to process all products
-            for (const product of products) {            
-                try {
-                    const title = extractTitle(product);
-                    const imageUrl = extractImageUrl(product);
-                    const price = extractPrice(product);
-                    const productUrl = extractProductUrl(product);
+            let product = products[0];  // For demo purposes, processing one product at a time
 
-                    console.log(`Product: ${title}\nPrice: ${price}\nImage URL: ${imageUrl}\nProduct URL: ${productUrl}`);
-                    
-                    const cvsProduct = {
-                        title: title,
-                        price: price,
-                        image_urls: [imageUrl],
-                        product_url: productUrl,
-                        source: 'cvs'
-                    };
+            try {
+                const title = extractTitle(product);
+                const imageUrl = extractImageUrl(product);
+                const price = extractPrice(product);
+                const productUrl = extractProductUrl(product);
 
-                    // Send a message to the background script to search Amazon
-                    const amazonResults = await searchAmazon(cvsProduct);
-                    console.log('Amazon Results:', amazonResults);
+                console.log(`Product: ${title}\nPrice: ${price}\nImage URL: ${imageUrl}\nProduct URL: ${productUrl}`);
+                
+                const cvsProduct = {
+                    title: title,
+                    price: price,
+                    image_urls: [imageUrl],
+                    product_url: productUrl,
+                    source: 'cvs'
+                };
 
-                    // Call the API endpoint to process the product
-                    const apiResponse = await processProduct(cvsProduct, amazonResults);
-                    console.log('API Response:', apiResponse);
-
-                    console.log('----------');
-                } catch (err) {
-                    console.error('Error processing the product:', err);
+                // Get the bounding rect for cropping the screenshot from the specific selector
+                const targetElement = document.querySelector('#root > div > div > div > div.css-1dbjc4n.r-13awgt0.r-1mlwlqe.r-1wgg2b2.r-13qz1uu > div > div:nth-child(1) > div > div > div > main > div > div > div.css-1dbjc4n.r-n2h5ot.r-bnwqim.r-13qz1uu > div > div > div > div.css-1dbjc4n.r-13awgt0.r-1mlwlqe > div > div > div > div:nth-child(2) > div > div > div:nth-child(1)');
+                if (!targetElement) {
+                    throw new Error('Target element for screenshot not found');
                 }
+                const rect = targetElement.getBoundingClientRect();
+                const screenshot = await captureScreenshotAndCrop(rect);
+                console.log(`Captured and cropped screenshot for product: ${title}`);
+
+                // Add the screenshot to the cvsProduct object
+                cvsProduct.screenshot = screenshot;
+
+                // Send a message to the background script to search Amazon
+                const amazonResults = await searchAmazon(cvsProduct);
+                console.log('Amazon Results:', amazonResults);
+
+                // Call the API endpoint to process the product with CVS and Amazon screenshots
+                const apiResponse = await processProduct(cvsProduct, amazonResults);
+                console.log('API Response:', apiResponse);
+
+                console.log('----------');
+            } catch (err) {
+                console.error('Error processing the product:', err);
             }
-            
-            console.log('CVS Scraper Extension: Processing complete.');
         } catch (err) {
             console.error('Error scraping CVS:', err);
         }
@@ -70,10 +77,10 @@
         });
     }
 
-    async function processProduct(cvsProduct, amazonResults) {
+    async function processProduct(cvsProduct, amazonResults, screenshot) {
         return new Promise((resolve, reject) => {
             chrome.runtime.sendMessage(
-                { action: 'processProduct', cvsProduct, amazonResults },
+                { action: 'processProduct', cvsProduct, amazonResults, screenshot },
                 (response) => {
                     if (response && response.error) {
                         reject(response.error);
@@ -84,6 +91,47 @@
                     }
                 }
             );
+        });
+    }
+
+    // Capture the screenshot and crop it based on the product element's bounding rect
+    async function captureScreenshotAndCrop(rect) {
+        return new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage(
+                { action: 'captureScreenshot' },
+                (response) => {
+                    if (response && response.screenshot) {
+                        const croppedScreenshot = cropScreenshot(response.screenshot, rect);
+                        resolve(croppedScreenshot);
+                    } else {
+                        reject('Failed to capture screenshot.');
+                    }
+                }
+            );
+        });
+    }
+
+    // Function to crop the screenshot based on the bounding rect
+    function cropScreenshot(dataUrl, rect) {
+        return new Promise((resolve) => {
+            const image = new Image();
+            image.src = dataUrl;
+
+            image.onload = () => {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+
+                canvas.width = rect.width;
+                canvas.height = rect.height;
+
+                context.drawImage(
+                    image,
+                    rect.left, rect.top, rect.width, rect.height,
+                    0, 0, rect.width, rect.height
+                );
+
+                resolve(canvas.toDataURL('image/png'));
+            };
         });
     }
 

@@ -1,11 +1,57 @@
 import { PrismaClient } from '@prisma/client';
 import { analyzeProduct } from './keepa';  // Import analyzeProduct from openai.js
+import AWS from 'aws-sdk';
+import { v4 as uuidv4 } from 'uuid'; // Import the uuid package
+
 
 const prisma = new PrismaClient();
+
+// Configure AWS S3
+const s3 = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID, // Add your access key
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY, // Add your secret key
+  region: 'us-east-1', // Replace with your region
+});
+
+// Helper function to upload screenshot to S3
+async function uploadScreenshotToS3(screenshotBase64) {
+  const buffer = Buffer.from(
+    screenshotBase64.replace(/^data:image\/\w+;base64,/, ''),
+    'base64'
+  );
+
+  // Generate a unique filename using UUID and timestamp
+  const uniqueFilename = `${uuidv4()}-${Date.now()}.png`;
+
+  const params = {
+    Bucket: 'oaflipper-shots',
+    Key: uniqueFilename, // Use the unique filename
+    Body: buffer,
+    ContentEncoding: 'base64', // Required for base64 encoding
+    ContentType: 'image/png', // Image format
+    ACL: 'public-read', // Set the ACL to public-read to get a public URL
+  };
+
+  try {
+    const { Location } = await s3.upload(params).promise();
+    return Location; // Return the URL of the uploaded screenshot
+  } catch (error) {
+    console.error('Error uploading screenshot to S3:', error);
+    throw new Error('Failed to upload screenshot');
+  }
+}
 
 // Insert or update product and match data in the database
 export async function insertOrUpdateDataToDB(productData, amazonData) {
   try {
+    // If the screenshot exists, upload it to S3 and get the URL
+    let screenshotUrl = null;
+    if (productData.screenshot) {
+      console.log('Uploading screenshot to S3...');
+      screenshotUrl = await uploadScreenshotToS3(productData.screenshot);
+      console.log(`Screenshot uploaded to: ${screenshotUrl}`);
+    }
+
     // Upsert the product in the database (insert or update)
     const product = await prisma.product.upsert({
       where: { product_url: productData.product_url },
@@ -13,7 +59,8 @@ export async function insertOrUpdateDataToDB(productData, amazonData) {
         title: productData.title,
         image_urls: productData.image_urls,
         last_seen_price: productData.price,
-        in_stock: true
+        in_stock: true,
+        screenshot_url: screenshotUrl, // Update screenshot URL if exists
       },
       create: {
         asin: productData.asin,
@@ -22,27 +69,28 @@ export async function insertOrUpdateDataToDB(productData, amazonData) {
         product_url: productData.product_url,
         source: productData.source,
         last_seen_price: productData.price,
-        in_stock: true
-      }
+        in_stock: true,
+        screenshot_url: screenshotUrl, // Save screenshot URL if exists
+      },
     });
     console.log(`Inserted product: ${productData.title}`);
 
     // Loop through each Amazon product data and upsert it
     for (const amazon of amazonData) {
-      console.log(`Processing Amazon product: ${amazon}`);
+      console.log(`Processing Amazon product: ${amazon.title}`);
       const amazonProduct = await prisma.amazonProduct.upsert({
         where: { asin: amazon.asin },
         update: {
           title: amazon.title,
           product_url: amazon.product_url,
-          image_url: amazon.image_url
+          image_url: amazon.image_url,
         },
         create: {
           asin: amazon.asin,
           title: amazon.title,
           product_url: amazon.product_url,
-          image_url: amazon.image_url
-        }
+          image_url: amazon.image_url,
+        },
       });
 
       // Upsert the product match between product and amazonProduct
@@ -50,20 +98,19 @@ export async function insertOrUpdateDataToDB(productData, amazonData) {
         where: {
           product_id_amazon_product_id: {
             product_id: product.id,
-            amazon_product_id: amazonProduct.id
-          }
+            amazon_product_id: amazonProduct.id,
+          },
         },
         create: {
           product_id: product.id,
-          amazon_product_id: amazonProduct.id
+          amazon_product_id: amazonProduct.id,
         },
-        update: {}
+        update: {},
       });
       console.log(`Inserted Amazon product: ${amazon.title}`);
     }
-
   } catch (error) {
-    console.error("Error inserting or updating data in the database:", error);
+    console.error('Error inserting or updating data in the database:', error);
   }
 }
 
