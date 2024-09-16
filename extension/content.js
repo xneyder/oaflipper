@@ -15,8 +15,10 @@
             const products = document.querySelectorAll('div.css-1dbjc4n.r-18u37iz.r-tzz3ar');
             console.log(`Found ${products.length} products on the page.`);
             
-            
-            for (const product of products) {            
+            // For demonstration, process only the first product
+            let product = products[0];
+            // You can uncomment the for-loop to process all products
+            // for (const product of products) {            
                 try {
                     const title = extractTitle(product);
                     const imageUrl = extractImageUrl(product);
@@ -35,13 +37,17 @@
 
                     // Send a message to the background script to search Amazon
                     const amazonResults = await searchAmazon(cvsProduct);
-                    console.log(amazonResults);
+                    console.log('Amazon Results:', amazonResults);
+
+                    // Call the API endpoint to process the product
+                    const apiResponse = await processProduct(cvsProduct, amazonResults);
+                    console.log('API Response:', apiResponse);
 
                     console.log('----------');
                 } catch (err) {
                     console.error('Error processing the product:', err);
                 }
-            }
+            // }
             
             console.log('CVS Scraper Extension: Processing complete.');
         } catch (err) {
@@ -54,10 +60,29 @@
             chrome.runtime.sendMessage(
                 { action: 'searchAmazon', product },
                 (response) => {
-                    if (response.error) {
+                    if (response && response.error) {
                         reject(response.error);
-                    } else {
+                    } else if (response && response.results) {
                         resolve(response.results);
+                    } else {
+                        reject('No response from background script.');
+                    }
+                }
+            );
+        });
+    }
+
+    async function processProduct(cvsProduct, amazonResults) {
+        return new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage(
+                { action: 'processProduct', cvsProduct, amazonResults },
+                (response) => {
+                    if (response && response.error) {
+                        reject(response.error);
+                    } else if (response && response.data) {
+                        resolve(response.data);
+                    } else {
+                        reject('No response from background script.');
                     }
                 }
             );

@@ -16,6 +16,7 @@ export async function insertOrUpdateDataToDB(productData, amazonData) {
         in_stock: true
       },
       create: {
+        asin: productData.asin,
         title: productData.title,
         image_urls: productData.image_urls,
         product_url: productData.product_url,
@@ -26,7 +27,9 @@ export async function insertOrUpdateDataToDB(productData, amazonData) {
     });
 
     // Loop through each Amazon product data and upsert it
+    console.log(amazonData);
     for (const amazon of amazonData) {
+      console.log(`Processing Amazon product with ASIN: ${amazon.asin}`);
       const amazonProduct = await prisma.amazonProduct.upsert({
         where: { asin: amazon.asin },
         update: {
@@ -65,30 +68,36 @@ export async function insertOrUpdateDataToDB(productData, amazonData) {
 // Analyze and update products
 export async function analyzeAndUpdateProducts(productUrl) {
   try {
-    // Find all products matching the product URL
-    const products = await prisma.product.findMany({
+    // Find all AmazonProduct entries that match the product URL
+    const amazonProducts = await prisma.amazonProduct.findMany({
       where: { product_url: productUrl }
     });
 
-    // Loop through each product found
-    for (const product of products) {
-      console.log(`Processing product with URL: ${productUrl}`);
+    if (amazonProducts.length === 0) {
+      console.log(`No AmazonProducts found for URL: ${productUrl}`);
+      return;
+    }
 
-      // Use the analyzeProduct function from openai.js
-      const { amazon_buy_box_count, current_sellers } = await analyzeProduct(product.asin);
+    // Loop through each AmazonProduct found
+    for (const amazonProduct of amazonProducts) {
+      console.log(`Processing Amazon product with ASIN: ${amazonProduct.asin}`);
+
+      // Use the analyzeProduct function to analyze the product using the ASIN
+      const { amazon_buy_box_count, current_sellers } = await analyzeProduct(amazonProduct.asin);
 
       // Update the AmazonProduct with the buy box count and current sellers
       await prisma.amazonProduct.update({
-        where: { asin: product.asin },
+        where: { asin: amazonProduct.asin },
         data: {
           amazon_buy_box_count,
           current_sellers
         }
       });
 
-      console.log(`Updated product ${productUrl} with buy box count ${amazon_buy_box_count} and current sellers ${current_sellers}`);
+      console.log(`Updated AmazonProduct ${amazonProduct.asin} with buy box count ${amazon_buy_box_count} and current sellers ${current_sellers}`);
     }
   } catch (error) {
-    console.error("Error analyzing and updating products:", error);
+    console.error("Error analyzing and updating Amazon products:", error);
   }
 }
+

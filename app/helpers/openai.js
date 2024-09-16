@@ -1,11 +1,9 @@
-import { Configuration, OpenAIApi } from "openai";
+import OpenAI from "openai";
 
-const configuration = new Configuration({
+const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY // Ensure this is set in your `.env.local` file
 });
-const openai = new OpenAIApi(configuration);
 
-// Function to find matching Amazon product images using OpenAI API
 export async function findMatchingAmazonImages(product, amazonResults) {
   const imageUrls = product.image_urls;
 
@@ -22,25 +20,40 @@ export async function findMatchingAmazonImages(product, amazonResults) {
     .map(result => result.image_url);
 
   // Construct the prompt for OpenAI
-  const prompt = `In the first image, I have a product. Check if the product is present in any of the other images, making sure it's the same product with the same colors and details. Return just an array of integer indexes of images that match the first image.`;
+  const prompt = `In the first image, I have a product. Check if the product is present in any of the other images, making sure it's the same product with the same colors and details. Return just an array of integer indexes of images that match the first image, no other text in the response just the array.`;
 
-  const messages = [
-    { role: "user", content: prompt },
-    { role: "user", content: { image_url: firstImageUrl } }
+  // Prepare the message structure like the Python version
+  const message = [
+    { role: "system", content: "You are a customer looking for a product." },
+    {
+      role: "user",
+      content: [
+        { type: "text", text: prompt },
+        { type: "image_url", image_url: { url: firstImageUrl } },
+      ],
+    },
   ];
 
+  // Append each Amazon image URL to the message
   amazonImageUrls.forEach(imageUrl => {
-    messages.push({ role: "user", content: { image_url: imageUrl } });
+    message[1].content.push({
+      type: "image_url",
+      image_url: { url: imageUrl },
+    });
   });
 
+  console.log(message);
+
   try {
-    const response = await openai.createChatCompletion({
-      model: "gpt-4",
-      messages,
-      max_tokens: 300
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: message,
+      max_tokens: 300,
     });
 
-    const messageContent = response.data.choices[0].message.content.trim();
+    console.log(response.choices[0].message.content);
+
+    const messageContent = response.choices[0].message.content.trim();
     return JSON.parse(messageContent);
   } catch (error) {
     console.error("Error querying OpenAI:", error);
@@ -55,8 +68,6 @@ export async function analyzeProduct(asin) {
   // Mocked analysis logic (can be replaced with actual logic or OpenAI API calls)
   const amazon_buy_box_count = Math.floor(Math.random() * 100);  // Simulating analysis logic
   const current_sellers = Math.floor(Math.random() * 50);        // Simulating analysis logic
-
-  // If using OpenAI for this analysis, you could construct a prompt similar to the one above
 
   return { amazon_buy_box_count, current_sellers };
 }
