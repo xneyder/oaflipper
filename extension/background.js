@@ -132,37 +132,6 @@ async function injectScriptWithRetry(tabId, productTitle, sendResponse, attempt)
     });
 }
 
-// function extractAsin(url) {
-//     console.log("Extracting ASIN from URL:", url); // Log the URL you're extracting from
-
-//     // Try to extract ASIN directly from the URL path
-//     const asinMatch = url.match(/\/([A-Z0-9]{10})(?:[/?]|$)/);
-//     if (asinMatch) {
-//         console.log("ASIN found in URL path:", asinMatch[1]);
-//         return asinMatch[1]; // Return the ASIN if found
-//     }
-
-//     // If no match, check if ASIN is inside query parameters (e.g., redirect links)
-//     try {
-//         const urlObj = new URL(url);
-//         const queryParams = new URLSearchParams(urlObj.search);
-
-//         if (queryParams.has('url')) {
-//             const decodedUrl = decodeURIComponent(queryParams.get('url'));
-//             console.log("Decoded URL from query params:", decodedUrl);
-//             const asinFromQuery = decodedUrl.match(/\/([A-Z0-9]{10})(?:[/?]|$)/);
-//             if (asinFromQuery) {
-//                 console.log("ASIN found in decoded query params:", asinFromQuery[1]);
-//                 return asinFromQuery[1]; // Return the ASIN from query string
-//             }
-//         }
-//     } catch (error) {
-//         console.error("Error parsing URL:", error); // Log parsing errors
-//     }
-
-//     console.log("ASIN not found for URL:", url);
-//     return null; // Return null if ASIN could not be extracted
-// }
 
 function performAmazonSearch(title) {
     return new Promise((resolve) => {
@@ -237,7 +206,7 @@ function performAmazonSearch(title) {
 
                 if (productUrl && productTitle) {
                     amazonResults.push({
-                        url: productUrl,
+                        product_url: productUrl,
                         title: productTitle,
                         image_url: imageUrl || null,
                         price: productPrice || 'Price not available',

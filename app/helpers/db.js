@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { analyzeProduct } from './openai';  // Import analyzeProduct from openai.js
+import { analyzeProduct } from './keepa';  // Import analyzeProduct from openai.js
 
 const prisma = new PrismaClient();
 
@@ -27,20 +27,18 @@ export async function insertOrUpdateDataToDB(productData, amazonData) {
     });
 
     // Loop through each Amazon product data and upsert it
-    console.log(amazonData);
     for (const amazon of amazonData) {
-      console.log(`Processing Amazon product with ASIN: ${amazon.asin}`);
       const amazonProduct = await prisma.amazonProduct.upsert({
         where: { asin: amazon.asin },
         update: {
           title: amazon.title,
-          product_url: amazon.url,
+          product_url: amazon.product_url,
           image_url: amazon.image_url
         },
         create: {
           asin: amazon.asin,
           title: amazon.title,
-          product_url: amazon.url,
+          product_url: amazon.product_url,
           image_url: amazon.image_url
         }
       });
@@ -68,30 +66,51 @@ export async function insertOrUpdateDataToDB(productData, amazonData) {
 // Analyze and update products
 export async function analyzeAndUpdateProducts(productUrl) {
   try {
-    // Find all AmazonProduct entries that match the product URL
-    const amazonProducts = await prisma.amazonProduct.findMany({
-      where: { product_url: productUrl }
+    // Step 1: Find the product by its URL
+    const product = await prisma.product.findUnique({
+      where: { product_url: productUrl },
     });
 
-    if (amazonProducts.length === 0) {
-      console.log(`No AmazonProducts found for URL: ${productUrl}`);
+    if (!product) {
+      console.log(`No product found for URL: ${productUrl}`);
       return;
     }
 
-    // Loop through each AmazonProduct found
-    for (const amazonProduct of amazonProducts) {
-      console.log(`Processing Amazon product with ASIN: ${amazonProduct.asin}`);
+    // Step 2: Find all ProductMatch entries that reference this product
+    const productMatches = await prisma.productMatch.findMany({
+      where: { product_id: product.id },
+    });
 
-      // Use the analyzeProduct function to analyze the product using the ASIN
+    if (productMatches.length === 0) {
+      console.log(`No ProductMatch entries found for Product ID: ${product.id}`);
+      return;
+    }
+
+    // Step 3: Loop through ProductMatch and get corresponding AmazonProduct entries
+    for (const match of productMatches) {
+      const amazonProduct = await prisma.amazonProduct.findUnique({
+        where: { id: match.amazon_product_id },
+      });
+
+      if (!amazonProduct) {
+        console.log(`No AmazonProduct found for ID: ${match.amazon_product_id}`);
+        continue;
+      }
+
+      console.log(`Analyzing AmazonProduct with ASIN: ${amazonProduct.asin}`);
+
+      // Step 4: Use the analyzeProduct function to analyze the product using the ASIN
       const { amazon_buy_box_count, current_sellers } = await analyzeProduct(amazonProduct.asin);
 
-      // Update the AmazonProduct with the buy box count and current sellers
+      console.log(`Analyzed AmazonProduct ${amazonProduct.asin} with buy box count ${amazon_buy_box_count} and current sellers ${current_sellers}`);
+
+      // Step 5: Update the AmazonProduct with the buy box count and current sellers
       await prisma.amazonProduct.update({
         where: { asin: amazonProduct.asin },
         data: {
           amazon_buy_box_count,
-          current_sellers
-        }
+          current_sellers,
+        },
       });
 
       console.log(`Updated AmazonProduct ${amazonProduct.asin} with buy box count ${amazon_buy_box_count} and current sellers ${current_sellers}`);

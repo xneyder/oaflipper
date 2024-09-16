@@ -42,7 +42,7 @@ export async function findMatchingAmazonImages(product, amazonResults) {
     });
   });
 
-  console.log(message);
+  // console.log(message);
 
   try {
     const response = await openai.chat.completions.create({
@@ -51,7 +51,7 @@ export async function findMatchingAmazonImages(product, amazonResults) {
       max_tokens: 300,
     });
 
-    console.log(response.choices[0].message.content);
+    // console.log(response.choices[0].message.content);
 
     const messageContent = response.choices[0].message.content.trim();
     return JSON.parse(messageContent);
@@ -59,15 +59,4 @@ export async function findMatchingAmazonImages(product, amazonResults) {
     console.error("Error querying OpenAI:", error);
     return [];
   }
-}
-
-// Analyze product based on rules using OpenAI API (or any other analysis method)
-export async function analyzeProduct(asin) {
-  console.log(`Analyzing product with ASIN: ${asin}`);
-
-  // Mocked analysis logic (can be replaced with actual logic or OpenAI API calls)
-  const amazon_buy_box_count = Math.floor(Math.random() * 100);  // Simulating analysis logic
-  const current_sellers = Math.floor(Math.random() * 50);        // Simulating analysis logic
-
-  return { amazon_buy_box_count, current_sellers };
 }
