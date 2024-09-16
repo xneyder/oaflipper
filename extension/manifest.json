@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "flipper",
+  "name": "OA Flipper",
   "version": "1.0",
   "description": "Get online deals to flip.",
   "permissions": [
@@ -14,7 +14,8 @@
   "host_permissions": [
     "http://localhost:3000/*",
     "https://www.cvs.com/*",
-    "https://www.amazon.com/*"
+    "https://www.amazon.com/*",
+    "https://www.walgreens.com/*"
   ],
   "background": {
     "service_worker": "background.js"
