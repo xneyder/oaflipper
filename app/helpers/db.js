@@ -25,9 +25,11 @@ export async function insertOrUpdateDataToDB(productData, amazonData) {
         in_stock: true
       }
     });
+    console.log(`Inserted product: ${productData.title}`);
 
     // Loop through each Amazon product data and upsert it
     for (const amazon of amazonData) {
+      console.log(`Processing Amazon product: ${amazon}`);
       const amazonProduct = await prisma.amazonProduct.upsert({
         where: { asin: amazon.asin },
         update: {
@@ -57,7 +59,9 @@ export async function insertOrUpdateDataToDB(productData, amazonData) {
         },
         update: {}
       });
+      console.log(`Inserted Amazon product: ${amazon.title}`);
     }
+
   } catch (error) {
     console.error("Error inserting or updating data in the database:", error);
   }

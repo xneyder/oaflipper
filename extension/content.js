@@ -15,10 +15,8 @@
             const products = document.querySelectorAll('div.css-1dbjc4n.r-18u37iz.r-tzz3ar');
             console.log(`Found ${products.length} products on the page.`);
             
-            // For demonstration, process only the first product
-            let product = products[0];
             // You can uncomment the for-loop to process all products
-            // for (const product of products) {            
+            for (const product of products) {            
                 try {
                     const title = extractTitle(product);
                     const imageUrl = extractImageUrl(product);
@@ -47,7 +45,7 @@
                 } catch (err) {
                     console.error('Error processing the product:', err);
                 }
-            // }
+            }
             
             console.log('CVS Scraper Extension: Processing complete.');
         } catch (err) {
