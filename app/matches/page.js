@@ -1,17 +1,49 @@
-import ButtonAccount from "@/components/ButtonAccount";
+"use client";
+
+import { useState, useEffect } from "react";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 export const dynamic = "force-dynamic";
 
-// This is a private page: It's protected by the layout.js component which ensures the user is authenticated.
-// It's a server compoment which means you can fetch data (like the user profile) before the page is rendered.
-// See https://shipfa.st/docs/tutorials/private-page
-export default async function Matches() {
+export default function Matches() {
+  const [matches, setMatches] = useState([]);
+  const supabase = createClientComponentClient();
+
+  const fetchMatches = async () => {
+    // Fetch products and include the matching Amazon products via a join
+    const { data: products, error } = await supabase
+      .from("Product")
+      .select(`
+        *,
+        product_matches (
+          amazon_product (*)
+        )
+      `);
+
+    if (error) {
+      console.error("Error fetching matches:", error);
+      return;
+    }
+
+    // Format the data to include Amazon products
+    const formattedProducts = products.map((product) => ({
+      ...product,
+      amazon_products: product.product_matches.map((match) => ({
+        ...match.amazon_product,
+      })),
+    }));
+
+    setMatches(formattedProducts);
+  };
+
+  useEffect(() => {
+    fetchMatches();
+  }, []);
+
   return (
-    <main className="min-h-screen p-8 pb-24">
-      <section className="max-w-xl mx-auto space-y-8">
-        <ButtonAccount />
-        <h1 className="text-3xl md:text-4xl font-extrabold">Matches</h1>
-      </section>
-    </main>
+    <>
+      <h1>Matches</h1>
+      <pre>{JSON.stringify(matches, null, 2)}</pre>
+    </>
   );
 }
