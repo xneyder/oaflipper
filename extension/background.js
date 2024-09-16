@@ -19,7 +19,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // Return true to indicate we will send a response asynchronously
         return true;
     } else if (message.action === 'processProduct') {
-        const { cvsProduct, amazonResults } = message;
+        const { parsedProduct, amazonResults } = message;
         // Use async function to handle the message
         (async () => {
             try {
@@ -27,10 +27,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include', // Include cookies if necessary for authentication
-                    body: JSON.stringify({ product: cvsProduct, amazon_results: amazonResults })
+                    body: JSON.stringify({ product: parsedProduct, amazon_results: amazonResults })
                 });
 
-                console.log('Processing product:', cvsProduct, amazonResults);
+                console.log('Processing product:', parsedProduct, amazonResults);
                 const data = await response.json();
 
                 console.log('API response:', data);
