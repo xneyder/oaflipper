@@ -44,13 +44,6 @@ async function uploadScreenshotToS3(screenshotBase64) {
 // Insert or update product and match data in the database
 export async function insertOrUpdateDataToDB(productData, amazonData) {
   try {
-    // If the screenshot exists, upload it to S3 and get the URL
-    let screenshotUrl = null;
-    if (productData.screenshot) {
-      console.log('Uploading screenshot to S3...');
-      screenshotUrl = await uploadScreenshotToS3(productData.screenshot);
-      console.log(`Screenshot uploaded to: ${screenshotUrl}`);
-    }
 
     // Upsert the product in the database (insert or update)
     const product = await prisma.product.upsert({
@@ -60,7 +53,7 @@ export async function insertOrUpdateDataToDB(productData, amazonData) {
         image_urls: productData.image_urls,
         last_seen_price: productData.price,
         in_stock: true,
-        screenshot_url: screenshotUrl, // Update screenshot URL if exists
+        promotionText: productData.promotionText,
       },
       create: {
         asin: productData.asin,
@@ -70,7 +63,7 @@ export async function insertOrUpdateDataToDB(productData, amazonData) {
         source: productData.source,
         last_seen_price: productData.price,
         in_stock: true,
-        screenshot_url: screenshotUrl, // Save screenshot URL if exists
+        promotionText: productData.promotionText,
       },
     });
     console.log(`Inserted product: ${productData.title}`);

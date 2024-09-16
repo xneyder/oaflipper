@@ -31,9 +31,9 @@ model Product {
   title           String
   image_urls      String[] // Array of URLs
   product_url     String         @unique
-  screenshot_url  String?
   source          String
   last_seen_price String?
+  promotionText String?
   in_stock        Boolean        @default(false)
   created_date    DateTime       @default(now())
   updated_date    DateTime       @updatedAt

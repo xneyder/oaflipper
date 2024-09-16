@@ -43,17 +43,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         // Return true to indicate that the response is asynchronous
         return true;
-    } else if (message.action === 'captureScreenshot') {
-        chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: 'png' }, function (dataUrl) {
-            if (chrome.runtime.lastError || !dataUrl) {
-                sendResponse({ error: 'Failed to capture screenshot' });
-            } else {
-                sendResponse({ screenshot: dataUrl });
-            }
-        });
-
-        return true;
-    } else if (message.action === 'closeCurrentTab') {
+    }  else if (message.action === 'closeCurrentTab') {
         console.log("Closing tab with ID:", sender.tab.id);
         chrome.tabs.remove(sender.tab.id);
     }

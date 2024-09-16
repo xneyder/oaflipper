@@ -20,34 +20,24 @@
                 const imageUrl = extractImageUrl(product);
                 const price = extractPrice(product);
                 const productUrl = extractProductUrl(product);
+                const promotionText = extractPromotionText(product);
 
-                console.log(`Product: ${title}\nPrice: ${price}\nImage URL: ${imageUrl}\nProduct URL: ${productUrl}`);
+                console.log(`Product: ${title}\nPrice: ${price}\nImage URL: ${imageUrl}\nProduct URL: ${productUrl}\nPromotion: ${promotionText}`);
                 
                 const cvsProduct = {
                     title: title,
                     price: price,
                     image_urls: [imageUrl],
                     product_url: productUrl,
-                    source: 'cvs'
+                    source: 'cvs',
+                    promotionText: promotionText  // Adding the promotion text
                 };
-
-                // Get the bounding rect for cropping the screenshot from the specific selector
-                const targetElement = document.querySelector('#root > div > div > div > div.css-1dbjc4n.r-13awgt0.r-1mlwlqe.r-1wgg2b2.r-13qz1uu > div > div:nth-child(1) > div > div > div > main > div > div > div.css-1dbjc4n.r-n2h5ot.r-bnwqim.r-13qz1uu > div > div > div > div.css-1dbjc4n.r-13awgt0.r-1mlwlqe > div > div > div > div:nth-child(2) > div > div > div:nth-child(1)');
-                if (!targetElement) {
-                    throw new Error('Target element for screenshot not found');
-                }
-                const rect = targetElement.getBoundingClientRect();
-                const screenshot = await captureScreenshotAndCrop(rect);
-                console.log(`Captured and cropped screenshot for product: ${title}`);
-
-                // Add the screenshot to the cvsProduct object
-                cvsProduct.screenshot = screenshot;
 
                 // Send a message to the background script to search Amazon
                 const amazonResults = await searchAmazon(cvsProduct);
                 console.log('Amazon Results:', amazonResults);
 
-                // Call the API endpoint to process the product with CVS and Amazon screenshots
+                // Call the API endpoint to process the product with CVS and Amazon data
                 const apiResponse = await processProduct(cvsProduct, amazonResults);
                 console.log('API Response:', apiResponse);
 
@@ -77,10 +67,10 @@
         });
     }
 
-    async function processProduct(cvsProduct, amazonResults, screenshot) {
+    async function processProduct(cvsProduct, amazonResults) {
         return new Promise((resolve, reject) => {
             chrome.runtime.sendMessage(
-                { action: 'processProduct', cvsProduct, amazonResults, screenshot },
+                { action: 'processProduct', cvsProduct, amazonResults },
                 (response) => {
                     if (response && response.error) {
                         reject(response.error);
@@ -91,47 +81,6 @@
                     }
                 }
             );
-        });
-    }
-
-    // Capture the screenshot and crop it based on the product element's bounding rect
-    async function captureScreenshotAndCrop(rect) {
-        return new Promise((resolve, reject) => {
-            chrome.runtime.sendMessage(
-                { action: 'captureScreenshot' },
-                (response) => {
-                    if (response && response.screenshot) {
-                        const croppedScreenshot = cropScreenshot(response.screenshot, rect);
-                        resolve(croppedScreenshot);
-                    } else {
-                        reject('Failed to capture screenshot.');
-                    }
-                }
-            );
-        });
-    }
-
-    // Function to crop the screenshot based on the bounding rect
-    function cropScreenshot(dataUrl, rect) {
-        return new Promise((resolve) => {
-            const image = new Image();
-            image.src = dataUrl;
-
-            image.onload = () => {
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-
-                canvas.width = rect.width;
-                canvas.height = rect.height;
-
-                context.drawImage(
-                    image,
-                    rect.left, rect.top, rect.width, rect.height,
-                    0, 0, rect.width, rect.height
-                );
-
-                resolve(canvas.toDataURL('image/png'));
-            };
         });
     }
 
@@ -174,4 +123,10 @@
         const productLinkTag = productElement.querySelector('a[href]');
         return productLinkTag ? 'https://www.cvs.com' + productLinkTag.getAttribute('href') : 'No URL found';
     }
+
+    function extractPromotionText(productElement) {
+        const promotionDiv = productElement.querySelector('div.css-901oao.r-cme181.r-1jn44m2.r-1b43r93.r-14yzgew.r-knv0ih');
+        return promotionDiv ? promotionDiv.textContent.trim() : 'No promotion found';
+    }
+    
 })();
