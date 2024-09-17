@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -9,8 +9,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-const AmazonProductCard = ({ product }) => {
+const AmazonProductCard = ({ product, finalPrice }) => {
   const [cost, setCost] = useState(0); // State for input cost
+
+  useEffect(() => {
+    // Set the cost to the final price whenever finalPrice changes
+    if (finalPrice) {
+      setCost(finalPrice); // Set the cost input field with the finalPrice
+    }
+  }, [finalPrice]); // Re-run this when finalPrice changes
 
   if (!product) return null;
 
@@ -49,7 +56,7 @@ const AmazonProductCard = ({ product }) => {
           <p><strong>Sellers:</strong> {product.current_sellers}</p>
           <p><strong>Amazon Buy Box Count:</strong> {product.amazon_buy_box_count}</p>
 
-          {/* Input for user's cost */}
+          {/* Input for user's cost (auto-populated with finalPrice) */}
           <div className="mt-4">
             <label htmlFor="cost" className="block font-semibold">
               Enter Your Cost:

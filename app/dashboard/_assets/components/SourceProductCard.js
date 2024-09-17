@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -9,20 +9,33 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-const SourceProductCard = ({ product, discount }) => {
+const SourceProductCard = ({ product, discount, onFinalPriceChange }) => {
   const [additionalDiscount, setAdditionalDiscount] = useState(0); // State to store the additional discount
+  const [bogoDiscount, setBogoDiscount] = useState(0); // State to store the Bogo discount
 
   if (!product) return null;
 
   // Remove the dollar sign from the price and convert it to a float
   const originalPrice = parseFloat(product.last_seen_price.replace("$", ""));
-  const discountedPrice = discount > 0 
-    ? (originalPrice - (originalPrice * (discount / 100))).toFixed(2)
-    : null;
 
-  // Calculate the final price after applying the additional discount
-  const basePrice = discountedPrice || originalPrice;
-  const finalPrice = (basePrice - (basePrice * (additionalDiscount / 100))).toFixed(2);
+  // Apply global discount if applicable
+  const discountedPrice = discount > 0 
+    ? originalPrice - (originalPrice * (discount / 100))
+    : originalPrice;
+
+  // Apply Bogo discount (25% or 50%) first
+  const priceAfterBogo = discountedPrice - (discountedPrice * (bogoDiscount / 100));
+
+  // Apply additional discount on top of Bogo-adjusted price
+  const finalPrice = Math.max(
+    (priceAfterBogo - (priceAfterBogo * (additionalDiscount / 100))).toFixed(2),
+    0 // Ensure price doesn't go below zero
+  );
+
+  // Notify parent component of the final price when it changes
+  useEffect(() => {
+    onFinalPriceChange(finalPrice);
+  }, [finalPrice]);
 
   return (
     <Card>
@@ -35,9 +48,9 @@ const SourceProductCard = ({ product, discount }) => {
           alt={product.title}
           style={{ width: '400px', height: '400px' }}
         />
-        <p>Price: ${originalPrice}</p>
-        {discountedPrice && (
-          <p style={{ color: 'red' }}>Discounted Price: ${discountedPrice}</p>
+        <p>Price: ${originalPrice.toFixed(2)}</p>
+        {discount > 0 && (
+          <p style={{ color: 'red' }}>Discounted Price: ${discountedPrice.toFixed(2)}</p>
         )}
         <p>Source: {product.source}</p>
         <p style={{ color: 'red' }}>{product.promotionText}</p>
@@ -59,7 +72,44 @@ const SourceProductCard = ({ product, discount }) => {
           />
         </div>
 
-        {/* Display final price after applying the additional discount */}
+        {/* Toggle buttons for Bogo discounts */}
+        <div className="mt-4">
+          <label className="block font-semibold">Select Bogo Option:</label>
+          <div className="flex space-x-4">
+            <label>
+              <input
+                type="radio"
+                name="bogo"
+                value="bogo50"
+                checked={bogoDiscount === 25} // 25% discount for Bogo 50%
+                onChange={() => setBogoDiscount(25)}
+              />
+              Bogo 50% (25% Discount)
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="bogo"
+                value="bogo"
+                checked={bogoDiscount === 50} // 50% discount for Bogo
+                onChange={() => setBogoDiscount(50)}
+              />
+              Bogo (50% Discount)
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="bogo"
+                value="none"
+                checked={bogoDiscount === 0} // No Bogo discount
+                onChange={() => setBogoDiscount(0)}
+              />
+              None
+            </label>
+          </div>
+        </div>
+
+        {/* Display final price after applying Bogo and additional discount */}
         <div className="mt-4">
           <p style={{ color: 'green' }}>
             Final Price After Additional Discount: ${finalPrice}

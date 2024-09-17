@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/carousel";
 import AmazonProductCard from "@/app/dashboard/_assets/components/AmazonProductCard";
 
-const AmazonProductCarousel = ({ products }) => {
+const AmazonProductCarousel = ({ products, finalPrice }) => {
   const [api, setApi] = React.useState(null); 
   const [current, setCurrent] = React.useState(0);
   const [count, setCount] = React.useState(0);
@@ -39,7 +39,7 @@ const AmazonProductCarousel = ({ products }) => {
             <CarouselItem key={index}>
               <Card className="flex justify-center items-center p-4"> 
                 <CardContent>
-                  <AmazonProductCard product={productMatch.AmazonProduct} />
+                  <AmazonProductCard product={productMatch.AmazonProduct} finalPrice={finalPrice} />
                 </CardContent>
               </Card>
             </CarouselItem>

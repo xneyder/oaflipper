@@ -12,6 +12,7 @@ export default function Matches() {
   const [discount, setDiscount] = useState(0); // State to track the global discount
   const [isLoading, setIsLoading] = useState(false); // Loading state
   const [error, setError] = useState(null); // Error state
+  const [finalPrices, setFinalPrices] = useState({}); // State to track the final prices for each product
 
   // Fetch products function
   const fetchProducts = async () => {
@@ -41,6 +42,14 @@ export default function Matches() {
   useEffect(() => {
     fetchProducts(); // Fetch products on component mount
   }, []);
+
+  // Function to handle the final price change for each product
+  const handleFinalPriceChange = (productId, finalPrice) => {
+    setFinalPrices((prevPrices) => ({
+      ...prevPrices,
+      [productId]: finalPrice, // Store final price for the specific product
+    }));
+  };
 
   return (
     <main className="min-h-screen p-8 pb-24">
@@ -79,12 +88,19 @@ export default function Matches() {
             <div className="flex w-full">
               {/* Left side: Main product card */}
               <div className="w-1/2 flex items-stretch">
-                <SourceProductCard product={product} discount={discount} />
+                <SourceProductCard 
+                  product={product} 
+                  discount={discount} 
+                  onFinalPriceChange={(finalPrice) => handleFinalPriceChange(product.id, finalPrice)} // Pass handler to set final price
+                />
               </div>
 
               {/* Right side: Carousel for Amazon products */}
               <div className="w-1/2 flex items-stretch">
-                <AmazonProductCarousel products={product.ProductMatch} />
+                <AmazonProductCarousel 
+                  products={product.ProductMatch} 
+                  finalPrice={finalPrices[product.id]} // Pass final price to each product
+                />
               </div>
             </div>
           </div>
