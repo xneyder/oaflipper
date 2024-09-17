@@ -20,7 +20,7 @@ export async function findMatchingAmazonImages(product, amazonResults) {
     .map(result => result.image_url);
 
   // Construct the prompt for OpenAI
-  const prompt = `In the first image, I have a product. Check if the product is present in any of the other images, making sure it's the same product with the same colors and details. Return just an array of integer indexes of images that match the first image, no other text in the response just the array.`;
+  const prompt = `In the first image, I have a product. Check if the product is present in any of the other images, the product can be in a different packaging so it is ok. Return just an array of integer indexes of images that match the first image, no other text in the response just the array.`;
 
   // Prepare the message structure like the Python version
   const message = [
@@ -46,7 +46,7 @@ export async function findMatchingAmazonImages(product, amazonResults) {
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       messages: message,
       max_tokens: 300,
     });

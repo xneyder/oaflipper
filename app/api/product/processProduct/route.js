@@ -37,34 +37,34 @@ export async function POST(req) {
 }
 
 async function processProduct(product, amazon_results) {
+    let matchingAmazon=amazon_results;
     const productUrl = product.product_url;
-    const title = product.title;
     
-    // Look for the existing product in the database
-    const existingProduct = await prisma.product.findUnique({
-        where: { product_url: productUrl }
-    });
+    // // Look for the existing product in the database
+    // const title = product.title;
+    // const existingProduct = await prisma.product.findUnique({
+    //     where: { product_url: productUrl }
+    // });
     
-    let matchingAmazon;
-    
-    if (existingProduct) {
-        console.log(`Product with URL ${productUrl} already exists, updating it.`);
-        matchingAmazon = await prisma.amazonProduct.findMany({
-            where: {
-                product_matches: {
-                    some: {
-                        product_id: existingProduct.id
-                    }
-                }
-            }
-        });
-    } else {
-        console.log(`Processing product: ${title}`);
-        const matchingIndexes = await findMatchingAmazonImages(product, amazon_results);
-        matchingAmazon = matchingIndexes
-        .filter(index => amazon_results[index] !== undefined) // Exclude undefined entries
-        .map(index => amazon_results[index]);
-    }
+    // let matchingAmazon;
+    // if (existingProduct) {
+    //     console.log(`Product with URL ${productUrl} already exists, updating it.`);
+    //     matchingAmazon = await prisma.amazonProduct.findMany({
+    //         where: {
+    //             product_matches: {
+    //                 some: {
+    //                     product_id: existingProduct.id
+    //                 }
+    //             }
+    //         }
+    //     });
+    // } else {
+    //     console.log(`Processing product: ${title}`);
+    //     const matchingIndexes = await findMatchingAmazonImages(product, amazon_results);
+    //     matchingAmazon = matchingIndexes
+    //     .filter(index => amazon_results[index] !== undefined) // Exclude undefined entries
+    //     .map(index => amazon_results[index]);
+    // }
     
     await insertOrUpdateDataToDB(product, matchingAmazon);
     await analyzeAndUpdateProducts(productUrl);

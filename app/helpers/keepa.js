@@ -94,11 +94,12 @@ export async function analyzeProduct(asin) {
 
   const buyBoxSellerHistory = historicalData.buyBoxSellerIdHistory || [];
   const current_sellers = historicalData.stats['totalOfferCount'];
+  const buy_box_price = historicalData.stats['buyBoxPrice']/100;
 
   // Get Amazon buy box count and current sellers
   const amazon_buy_box_count = getAmazonBuyBoxCount(buyBoxSellerHistory);
 
-  console.log(`Amazon buy box count: ${amazon_buy_box_count}, Current sellers: ${current_sellers}`);
+  console.log(`Amazon buy box count: ${amazon_buy_box_count}, Current sellers: ${current_sellers} Buy Box Price: ${buy_box_price}`);
 
-  return { amazon_buy_box_count, current_sellers };
+  return { amazon_buy_box_count, current_sellers, buy_box_price };
 }

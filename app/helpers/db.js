@@ -77,12 +77,14 @@ export async function insertOrUpdateDataToDB(productData, amazonData) {
           title: amazon.title,
           product_url: amazon.product_url,
           image_url: amazon.image_url,
+          last_seen_price: amazon.price,
         },
         create: {
           asin: amazon.asin,
           title: amazon.title,
           product_url: amazon.product_url,
           image_url: amazon.image_url,
+          last_seen_price: amazon.price,
         },
       });
 
@@ -97,8 +99,11 @@ export async function insertOrUpdateDataToDB(productData, amazonData) {
         create: {
           product_id: product.id,
           amazon_product_id: amazonProduct.id,
+          manual_invalid: false,
         },
-        update: {},
+        update: {
+          manual_invalid: false,
+        },
       });
       console.log(`Inserted Amazon product: ${amazon.title}`);
     }
@@ -122,7 +127,7 @@ export async function analyzeAndUpdateProducts(productUrl) {
 
     // Step 2: Find all ProductMatch entries that reference this product
     const productMatches = await prisma.productMatch.findMany({
-      where: { product_id: product.id },
+      where: { product_id: product.id, manual_invalid: false },
     });
 
     if (productMatches.length === 0) {
@@ -144,9 +149,14 @@ export async function analyzeAndUpdateProducts(productUrl) {
       console.log(`Analyzing AmazonProduct with ASIN: ${amazonProduct.asin}`);
 
       // Step 4: Use the analyzeProduct function to analyze the product using the ASIN
-      const { amazon_buy_box_count, current_sellers } = await analyzeProduct(amazonProduct.asin);
+      const { amazon_buy_box_count, current_sellers, buy_box_price } = await analyzeProduct(amazonProduct.asin);
 
-      console.log(`Analyzed AmazonProduct ${amazonProduct.asin} with buy box count ${amazon_buy_box_count} and current sellers ${current_sellers}`);
+      console.log(`Analyzed AmazonProduct ${amazonProduct.asin} with buy box count ${amazon_buy_box_count} and current sellers ${current_sellers} and buy box price ${buy_box_price}`);
+
+      if (amazon_buy_box_count === -1 || current_sellers === -1) {
+        console.log(`Failed to analyze AmazonProduct ${amazonProduct.asin}`);
+        continue;
+      }
 
       // Step 5: Update the AmazonProduct with the buy box count and current sellers
       await prisma.amazonProduct.update({
@@ -154,10 +164,11 @@ export async function analyzeAndUpdateProducts(productUrl) {
         data: {
           amazon_buy_box_count,
           current_sellers,
+          buy_box_price,
         },
       });
 
-      console.log(`Updated AmazonProduct ${amazonProduct.asin} with buy box count ${amazon_buy_box_count} and current sellers ${current_sellers}`);
+      // console.log(`Updated AmazonProduct ${amazonProduct.asin} with buy box count ${amazon_buy_box_count} and current sellers ${current_sellers} and buy box price ${buy_box_price}`);
     }
   } catch (error) {
     console.error("Error analyzing and updating Amazon products:", error);

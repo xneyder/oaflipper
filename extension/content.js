@@ -23,7 +23,8 @@
             const products = document.querySelectorAll('div.css-1dbjc4n.r-18u37iz.r-tzz3ar');
             console.log(`Found ${products.length} products on CVS page.`);
 
-            for (const product of products) {
+            let product = products[0];
+            // for (const product of products) {
                 try {
                     const title = extractTitle(product);
                     const imageUrl = extractImageUrl(product);
@@ -52,7 +53,7 @@
                 } catch (err) {
                     console.error('Error processing CVS product:', err);
                 }
-            }
+            // }
         } catch (err) {
             console.error('Error scraping CVS:', err);
         }
@@ -65,8 +66,8 @@
             const products = document.querySelectorAll('div.owned-brands__container');
             console.log(`Found ${products.length} products on Walgreens page.`);
 
-            let product = products[0];
-            // for (const product of products) {
+            // let product = products[0];
+            for (const product of products) {
                 try {
                     const title = extractWalgreensTitle(product);
                     const imageUrl = extractWalgreensImageUrl(product);
@@ -95,7 +96,7 @@
                 } catch (err) {
                     console.error('Error processing Walgreens product:', err);
                 }
-            // }
+            }
         } catch (err) {
             console.error('Error scraping Walgreens:', err);
         }
@@ -182,19 +183,51 @@
     }
 
     // Helper functions for Walgreens
-
     function extractWalgreensTitle(productElement) {
-        const titleElement = productElement.querySelector('strong.description');
-        return titleElement ? titleElement.textContent.trim() : 'No title found';
+        // Select any element whose id starts with 'title-secondary-0compare_'
+        const titleElement = productElement.querySelector('[id^="title-secondary-0compare_"]');
+        
+        if (!titleElement) {
+            console.error("No title element found");
+            return 'No title found';
+        }
+    
+        // Get the brand text
+        const brandElement = titleElement.querySelector('.brand');
+        const brand = brandElement ? brandElement.textContent.trim() : 'No brand found';
+    
+        // Get the description text
+        const descriptionElement = titleElement.querySelector('.description');
+        const description = descriptionElement ? descriptionElement.textContent.trim() : 'No description found';
+    
+        // Get the size text from the span with class 'amount'
+        const sizeElement = titleElement.querySelector('.amount');
+        const size = sizeElement ? sizeElement.textContent.trim() : '';
+    
+        // Concatenate brand, description, and size
+        return `${brand} ${description} ${size}`.trim();
     }
-
+    
     function extractWalgreensImageUrl(productElement) {
-        const imgTag = productElement.querySelector('img');
-        let imageUrl = imgTag ? imgTag.src : '';
-        if (imageUrl.startsWith('//')) {
+        // Try to select the img element inside the figure with class 'product__img'
+        let imgTag = productElement.querySelector('figure.product__img img');
+    
+        // If no img found, look for the secondary scenario where the figure might be missing the img tag
+        if (!imgTag) {
+            // Try to find the alternative image
+            imgTag = productElement.querySelector('figure.product__img');
+        }
+    
+        // Check if the imgTag exists and extract the src (considering cases where imgTag could be a figure without an img tag)
+        let imageUrl = imgTag ? imgTag.src || imgTag.getAttribute('src') : '';
+    
+        // If the src starts with '//', prepend 'https:' to make it a complete URL
+        if (imageUrl && imageUrl.startsWith('//')) {
             imageUrl = 'https:' + imageUrl;
         }
-        return imageUrl;
+    
+        // Return the image URL or a default message
+        return imageUrl || 'No valid image URL found';
     }
 
     function extractWalgreensPrice(productElement) {

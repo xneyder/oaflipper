@@ -66,7 +66,7 @@ async function injectScriptWithRetry(tabId, productTitle, sendResponse, attempt)
             return;
         }
 
-        sleep(3000).then(() => {
+        sleep(1000).then(() => {
             chrome.scripting.executeScript(
                 {
                     target: { tabId: tabId, allFrames: false },  // Inject into the top frame
@@ -92,7 +92,7 @@ async function injectScriptWithRetry(tabId, productTitle, sendResponse, attempt)
                         console.log('Amazon search returned results:', result[0].result);
 
                         // Adding another sleep before injecting the scroll and close function
-                        await sleep(2000); // Wait 2 seconds before injecting the scroll and close function
+                        await sleep(1000); // Wait 2 seconds before injecting the scroll and close function
 
                         // Inject the scroll and close function and wait for it to complete before sending the response
                         chrome.scripting.executeScript(
@@ -156,7 +156,7 @@ function performAmazonSearch(title) {
                 return [];
             }
 
-            for (let i = 0; i < Math.min(10, results.length); i++) {
+            for (let i = 0; i < Math.min(15, results.length); i++) {
                 const result = results[i];
                 let productUrl, productTitle, imageUrl, productPrice, asin;
 
