@@ -11,13 +11,28 @@
         await scrapeCvsPromotions();
     } else if (window.location.href.includes('walgreens.com')) {
         console.log('Detected Walgreens website');
-        await scrapeWalgreensPromotions();
+        await startWalgreensScrapeCycle();
     } else {
         console.log('This script only works on CVS or Walgreens websites.');
     }
 
     async function scrapeCvsPromotions() {
         // Your existing CVS scraping logic here
+    }
+
+    async function startWalgreensScrapeCycle() {
+        while (true) {
+            await scrapeWalgreensPromotions(); // Scroll, process products
+            const buttonClicked = await clickNextButton(); // Click the button to load the next page
+
+            if (!buttonClicked) {
+                console.log('No more pages to load, stopping the scraping cycle.');
+                break;
+            }
+
+            console.log('Waiting for new page to load...');
+            await waitForPageLoad();
+        }
     }
 
     async function scrapeWalgreensPromotions() {
@@ -67,6 +82,30 @@
             console.error('Error scraping Walgreens:', err);
         }
         console.log("Finished scraping Walgreens");
+    }
+
+    async function clickNextButton() {
+        const nextButton = document.querySelector('#omni-next-click');
+        
+        if (nextButton && !nextButton.disabled) {
+            console.log('Next button found, clicking it...');
+            nextButton.click();
+            return true;
+        } else {
+            console.log('Next button not found or is disabled.');
+            return false;
+        }
+    }
+
+    async function waitForPageLoad() {
+        let isLoaded = false;
+        while (!isLoaded) {
+            await sleep(1000);  // Wait 1 second between checks
+            if (document.readyState === 'complete') {
+                isLoaded = true;
+            }
+        }
+        console.log('Page loaded, continuing with the scraping.');
     }
 
     // Scroll function to scroll the page with a delay and check when no more content is being loaded
