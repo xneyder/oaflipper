@@ -102,7 +102,7 @@ export async function insertOrUpdateDataToDB(productData, amazonData) {
           manual_invalid: false,
         },
         update: {
-          manual_invalid: false,
+          // manual_invalid: false,
         },
       });
       console.log(`Inserted Amazon product: ${amazon.title}`);

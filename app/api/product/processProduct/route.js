@@ -67,5 +67,5 @@ async function processProduct(product, amazon_results) {
     // }
     
     await insertOrUpdateDataToDB(product, matchingAmazon);
-    await analyzeAndUpdateProducts(productUrl);
+    // await analyzeAndUpdateProducts(productUrl);
 }

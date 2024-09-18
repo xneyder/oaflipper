@@ -17,16 +17,23 @@ export async function GET(req) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 
+  // Extract pagination info from query params
+  const { searchParams } = new URL(req.url);
+  const limit = parseInt(searchParams.get("limit")) || 20; // default limit to 20
+  const page = parseInt(searchParams.get("page")) || 1; // default to page 1
+  const offset = (page - 1) * limit;
+
   try {
-    // Fetching products along with ProductMatch and AmazonProduct
-    const { data, error } = await supabase
+    // Fetch products with pagination
+    const { data, error, count } = await supabase
       .from("Product")
       .select(`
         *,
         ProductMatch (
           AmazonProduct (*)
         )
-      `);
+      `, { count: 'exact' }) // 'exact' to get the total number of rows
+      .range(offset, offset + limit - 1);  // Paginate the result
 
     if (error) {
       throw error;
@@ -37,14 +44,19 @@ export async function GET(req) {
       ...product,
       ProductMatch: product.ProductMatch.filter(
         (match) =>
-          !match.manual_invalid && // Exclude matches where manual_invalid is true
-          match.AmazonProduct.amazon_buy_box_count < 40 &&
-          match.AmazonProduct.current_sellers > 3
+          !match.manual_invalid && 
+          (match.AmazonProduct.amazon_buy_box_count < 40 || match.AmazonProduct.amazon_buy_box_count == undefined) &&
+          (match.AmazonProduct.current_sellers > 3 || match.AmazonProduct.current_sellers == undefined)
       ),
-    })).filter(product => product.ProductMatch.length > 0); // Exclude products without valid matches
+    })).filter(product => product.ProductMatch.length > 0);
 
-    // Return the filtered product data
-    return NextResponse.json({ data: filteredProducts }, { status: 200 });
+    // Return data with pagination info
+    return NextResponse.json({ 
+      data: filteredProducts,
+      page,
+      limit,
+      total: count, // Return the total number of rows for pagination
+    }, { status: 200 });
   } catch (e) {
     console.error("Error fetching products:", e);
     return NextResponse.json(

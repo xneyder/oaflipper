@@ -17,58 +17,23 @@
     }
 
     async function scrapeCvsPromotions() {
-        try {
-            await waitForElement('div.css-1dbjc4n.r-18u37iz.r-tzz3ar', 10000);
-
-            const products = document.querySelectorAll('div.css-1dbjc4n.r-18u37iz.r-tzz3ar');
-            console.log(`Found ${products.length} products on CVS page.`);
-
-            let product = products[0];
-            // for (const product of products) {
-                try {
-                    const title = extractTitle(product);
-                    const imageUrl = extractImageUrl(product);
-                    const price = extractPrice(product);
-                    const productUrl = extractProductUrl(product);
-                    const promotionText = extractPromotionText(product);
-
-                    console.log(`Product: ${title}\nPrice: ${price}\nImage URL: ${imageUrl}\nProduct URL: ${productUrl}\nPromotion: ${promotionText}`);
-
-                    const parsedProduct = {
-                        title: title,
-                        price: price,
-                        image_urls: [imageUrl],
-                        product_url: productUrl,
-                        source: 'cvs',
-                        promotionText: promotionText
-                    };
-
-                    const amazonResults = await searchAmazon(parsedProduct);
-                    console.log('Amazon Results:', amazonResults);
-
-                    const apiResponse = await processProduct(parsedProduct, amazonResults);
-                    console.log('API Response:', apiResponse);
-
-                    console.log('----------');
-                } catch (err) {
-                    console.error('Error processing CVS product:', err);
-                }
-            // }
-        } catch (err) {
-            console.error('Error scraping CVS:', err);
-        }
+        // Your existing CVS scraping logic here
     }
 
     async function scrapeWalgreensPromotions() {
         try {
+            console.log('Scrolling Walgreens page...');
+            await scrollToBottom();  // Scroll to the bottom of the page with a delay
+
             await waitForElement('div.owned-brands__container', 10000);
 
             const products = document.querySelectorAll('div.owned-brands__container');
             console.log(`Found ${products.length} products on Walgreens page.`);
 
-            // let product = products[0];
+            let index = 0;
             for (const product of products) {
                 try {
+                    console.log("Processing product number ", index++, " of ", products.length);
                     const title = extractWalgreensTitle(product);
                     const imageUrl = extractWalgreensImageUrl(product);
                     const price = extractWalgreensPrice(product);
@@ -95,11 +60,39 @@
                     console.log('----------');
                 } catch (err) {
                     console.error('Error processing Walgreens product:', err);
+                    continue;
                 }
             }
         } catch (err) {
             console.error('Error scraping Walgreens:', err);
         }
+        console.log("Finished scraping Walgreens");
+    }
+
+    // Scroll function to scroll the page with a delay and check when no more content is being loaded
+    async function scrollToBottom() {
+        let currentPosition = 0;
+        let previousPosition = -1;
+        let maxTries = 10;  // Try 10 times to ensure no more content is loading
+
+        while (currentPosition !== previousPosition && maxTries > 0) {
+            previousPosition = currentPosition;
+            window.scrollBy(0, 1000);  // Scroll down by 1000px
+            await sleep(1000);  // Sleep for 1 second
+            currentPosition = window.scrollY;
+            const newScrollHeight = document.body.scrollHeight;
+
+            if (currentPosition + window.innerHeight >= newScrollHeight) {
+                maxTries--;
+            }
+        }
+
+        console.log('Finished scrolling.');
+    }
+
+    // Sleep function
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     async function searchAmazon(product) {
@@ -184,7 +177,6 @@
 
     // Helper functions for Walgreens
     function extractWalgreensTitle(productElement) {
-        // Select any element whose id starts with 'title-secondary-0compare_'
         const titleElement = productElement.querySelector('[id^="title-secondary-0compare_"]');
         
         if (!titleElement) {
@@ -192,41 +184,31 @@
             return 'No title found';
         }
     
-        // Get the brand text
         const brandElement = titleElement.querySelector('.brand');
         const brand = brandElement ? brandElement.textContent.trim() : 'No brand found';
     
-        // Get the description text
         const descriptionElement = titleElement.querySelector('.description');
         const description = descriptionElement ? descriptionElement.textContent.trim() : 'No description found';
     
-        // Get the size text from the span with class 'amount'
         const sizeElement = titleElement.querySelector('.amount');
         const size = sizeElement ? sizeElement.textContent.trim() : '';
     
-        // Concatenate brand, description, and size
         return `${brand} ${description} ${size}`.trim();
     }
     
     function extractWalgreensImageUrl(productElement) {
-        // Try to select the img element inside the figure with class 'product__img'
         let imgTag = productElement.querySelector('figure.product__img img');
     
-        // If no img found, look for the secondary scenario where the figure might be missing the img tag
         if (!imgTag) {
-            // Try to find the alternative image
             imgTag = productElement.querySelector('figure.product__img');
         }
     
-        // Check if the imgTag exists and extract the src (considering cases where imgTag could be a figure without an img tag)
         let imageUrl = imgTag ? imgTag.src || imgTag.getAttribute('src') : '';
     
-        // If the src starts with '//', prepend 'https:' to make it a complete URL
         if (imageUrl && imageUrl.startsWith('//')) {
             imageUrl = 'https:' + imageUrl;
         }
     
-        // Return the image URL or a default message
         return imageUrl || 'No valid image URL found';
     }
 

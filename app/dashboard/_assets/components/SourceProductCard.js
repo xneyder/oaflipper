@@ -4,10 +4,13 @@ import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const SourceProductCard = ({ product, discount, onFinalPriceChange }) => {
   const [additionalDiscount, setAdditionalDiscount] = useState(0); // State to store the additional discount
@@ -23,7 +26,7 @@ const SourceProductCard = ({ product, discount, onFinalPriceChange }) => {
     ? originalPrice - (originalPrice * (discount / 100))
     : originalPrice;
 
-  // Apply Bogo discount (25% or 50%) first
+  // Apply Bogo discount (25%, 33.3%, or 50%) first
   const priceAfterBogo = discountedPrice - (discountedPrice * (bogoDiscount / 100));
 
   // Apply additional discount on top of Bogo-adjusted price
@@ -31,6 +34,21 @@ const SourceProductCard = ({ product, discount, onFinalPriceChange }) => {
     (priceAfterBogo - (priceAfterBogo * (additionalDiscount / 100))).toFixed(2),
     0 // Ensure price doesn't go below zero
   );
+
+  // Automatically select Bogo discount based on promotion text
+  useEffect(() => {
+    const promotionText = product.promotionText.toLowerCase();
+
+    if (promotionText.includes("buy 1, get 1 free")) {
+      setBogoDiscount(50); // 50% Discount
+    } else if (promotionText.includes("buy 1, get 1 50% off")) {
+      setBogoDiscount(25); // 25% Discount
+    } else if (promotionText.includes("buy 2, get 3rd free")) {
+      setBogoDiscount(33.3); // 33.3% Discount
+    } else {
+      setBogoDiscount(0); // No Bogo discount
+    }
+  }, [product.promotionText]);
 
   // Notify parent component of the final price when it changes
   useEffect(() => {
@@ -41,6 +59,7 @@ const SourceProductCard = ({ product, discount, onFinalPriceChange }) => {
     <Card>
       <CardHeader>
         <CardTitle>{product.title}</CardTitle>
+        <CardDescription>{product.source}</CardDescription>
       </CardHeader>
       <CardContent>
         <img
@@ -52,12 +71,38 @@ const SourceProductCard = ({ product, discount, onFinalPriceChange }) => {
         {discount > 0 && (
           <p style={{ color: 'red' }}>Discounted Price: ${discountedPrice.toFixed(2)}</p>
         )}
-        <p>Source: {product.source}</p>
         <p style={{ color: 'red' }}>{product.promotionText}</p>
 
-        {/* Input for the additional discount */}
+        {/* Radio Group for Bogo discounts */}
         <div className="mt-4">
-          <label htmlFor="additional-discount" className="block font-semibold">
+          <RadioGroup
+            value={bogoDiscount.toString()}
+            onValueChange={(value) => setBogoDiscount(parseFloat(value))} // Convert the value back to a number
+          >
+            <div className="flex space-x-4">
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="25" id="bogo50" />
+                <Label htmlFor="bogo50">Bogo 50% (25% Discount)</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="50" id="bogo" />
+                <Label htmlFor="bogo">Bogo (50% Discount)</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="33.3" id="bogo33" />
+                <Label htmlFor="bogo33">Bogo 33.3% (Buy 2, get 3rd FREE)</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="0" id="none" />
+                <Label htmlFor="none">None</Label>
+              </div>
+            </div>
+          </RadioGroup>
+        </div>
+
+        {/* Input for the additional discount */}
+        <div className="mt-4 flex items-center space-x-2">
+          <label htmlFor="additional-discount" className="font-semibold">
             Additional Discount (%):
           </label>
           <input
@@ -72,47 +117,10 @@ const SourceProductCard = ({ product, discount, onFinalPriceChange }) => {
           />
         </div>
 
-        {/* Toggle buttons for Bogo discounts */}
-        <div className="mt-4">
-          <label className="block font-semibold">Select Bogo Option:</label>
-          <div className="flex space-x-4">
-            <label>
-              <input
-                type="radio"
-                name="bogo"
-                value="bogo50"
-                checked={bogoDiscount === 25} // 25% discount for Bogo 50%
-                onChange={() => setBogoDiscount(25)}
-              />
-              Bogo 50% (25% Discount)
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="bogo"
-                value="bogo"
-                checked={bogoDiscount === 50} // 50% discount for Bogo
-                onChange={() => setBogoDiscount(50)}
-              />
-              Bogo (50% Discount)
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="bogo"
-                value="none"
-                checked={bogoDiscount === 0} // No Bogo discount
-                onChange={() => setBogoDiscount(0)}
-              />
-              None
-            </label>
-          </div>
-        </div>
-
         {/* Display final price after applying Bogo and additional discount */}
         <div className="mt-4">
           <p style={{ color: 'green' }}>
-            Final Price After Additional Discount: ${finalPrice}
+            Final Price After Additional Discounts: <strong>${finalPrice}</strong>
           </p>
         </div>
       </CardContent>

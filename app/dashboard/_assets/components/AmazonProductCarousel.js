@@ -16,6 +16,24 @@ const AmazonProductCarousel = ({ products, finalPrice }) => {
   const [current, setCurrent] = React.useState(0);
   const [count, setCount] = React.useState(0);
 
+  // Filter out Amazon products with a profit less than 1
+  const filteredProducts = products.filter((productMatch) => {
+    const product = productMatch.AmazonProduct;
+    
+    // Calculate the fees and profit here
+    const lastSeenPrice = parseFloat(product.last_seen_price.replace("$", ""));
+    const referralFeePercentage = lastSeenPrice > 10 ? 0.15 : 0.08;
+    const referralFee = lastSeenPrice * referralFeePercentage;
+    const monthlyStorageFee = 0.41;
+    const fulfillmentFee = 4.5;
+
+    // Calculate total fees and profit
+    const totalFees = referralFee + monthlyStorageFee + fulfillmentFee;
+    const profit = lastSeenPrice - totalFees - parseFloat(finalPrice || 0); // Subtracting finalPrice from the SourceProductCard
+
+    return profit >= 1; // Keep only products with profit >= 1
+  });
+
   React.useEffect(() => {
     if (!api) return;
 
@@ -27,7 +45,7 @@ const AmazonProductCarousel = ({ products, finalPrice }) => {
     });
   }, [api]);
 
-  if (!products || products.length === 0) {
+  if (!filteredProducts || filteredProducts.length === 0) {
     return <p>No Amazon products available</p>;
   }
 
@@ -35,7 +53,7 @@ const AmazonProductCarousel = ({ products, finalPrice }) => {
     <div className="mx-auto max-w-lg">
       <Carousel setApi={setApi} className="w-full max-w-lg">
         <CarouselContent>
-          {products.map((productMatch, index) => (
+          {filteredProducts.map((productMatch, index) => (
             <CarouselItem key={index}>
               <Card className="flex justify-center items-center p-4"> 
                 <CardContent>
@@ -49,7 +67,7 @@ const AmazonProductCarousel = ({ products, finalPrice }) => {
         <CarouselNext />
       </Carousel>
       <div className="py-2 text-center text-sm text-muted-foreground">
-        Slide {current} of {count}
+        Slide {current} of {filteredProducts.length}
       </div>
     </div>
   );
