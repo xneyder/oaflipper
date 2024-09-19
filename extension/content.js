@@ -23,7 +23,6 @@
     async function startWalgreensScrapeCycle() {
         while (true) {
             await scrapeWalgreensPromotions(); // Scroll, process products
-            break;
             const buttonClicked = await clickNextButton(); // Click the button to load the next page
 
             if (!buttonClicked) {
@@ -39,7 +38,7 @@
     async function scrapeWalgreensPromotions() {
         try {
             console.log('Scrolling Walgreens page...');
-            // await scrollToBottom();  // Scroll to the bottom of the page with a delay
+            await scrollToBottom();  // Scroll to the bottom of the page with a delay
 
             await waitForElement('div.owned-brands__container', 10000);
 
@@ -47,8 +46,8 @@
             console.log(`Found ${products.length} products on Walgreens page.`);
 
             let index = 0;
-            let product = products[0];
-            // for (const product of products) {
+            // let product = products[0];
+            for (const product of products) {
                 try {
                     console.log("Processing product number ", index++, " of ", products.length);
                     const title = extractWalgreensTitle(product);
@@ -71,15 +70,15 @@
                     const amazonResults = await searchAmp(parsedProduct);
                     console.log('Amazon Results:', amazonResults);
 
-                    // const apiResponse = await processProduct(parsedProduct, amazonResults);
-                    // console.log('API Response:', apiResponse);
+                    const apiResponse = await processProduct(parsedProduct, amazonResults);
+                    console.log('API Response:', apiResponse);
 
                     console.log('----------');
                 } catch (err) {
                     console.error('Error processing Walgreens product:', err);
-                    // continue;
+                    continue;
                 }
-            // }
+            }
         } catch (err) {
             console.error('Error scraping Walgreens:', err);
         }

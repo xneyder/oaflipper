@@ -28,7 +28,8 @@ export async function POST(req) {
         // console.log('Amazon Results:', amazon_results);
         
         // Call the processProduct function
-        await processProduct(product, amazon_results);
+        await insertOrUpdateDataToDB(product, amazon_results);
+        // await processProduct(product, amazon_results);
         return NextResponse.json({ message: 'Product processed successfully' }, { status: 200 });
     } catch (error) {
         console.error("Error processing product:", error);
@@ -38,7 +39,7 @@ export async function POST(req) {
 
 async function processProduct(product, amazon_results) {
     let matchingAmazon=amazon_results;
-    const productUrl = product.product_url;
+    // const productUrl = product.product_url;
     
     // // Look for the existing product in the database
     // const title = product.title;

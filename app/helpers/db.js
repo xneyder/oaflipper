@@ -78,6 +78,10 @@ export async function insertOrUpdateDataToDB(productData, amazonData) {
           product_url: amazon.product_url,
           image_url: amazon.image_url,
           last_seen_price: amazon.price,
+          upc : amazon.upc,
+          bsr: amazon.bsr,
+          max_cost: amazon.max_cost,
+          offers: amazon.offers,
         },
         create: {
           asin: amazon.asin,
@@ -85,6 +89,10 @@ export async function insertOrUpdateDataToDB(productData, amazonData) {
           product_url: amazon.product_url,
           image_url: amazon.image_url,
           last_seen_price: amazon.price,
+          upc : amazon.upc,
+          bsr: amazon.bsr,
+          max_cost: amazon.max_cost,
+          offers: amazon.offers,
         },
       });
 

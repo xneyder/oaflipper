@@ -18,7 +18,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         
         // Return true to indicate we will send a response asynchronously
         return true;
-    }
+    } else if (message.action === 'processProduct') {
+        const { parsedProduct, amazonResults } = message;
+        // Use async function to handle the message
+        (async () => {
+            try {
+                const response = await fetch('http://localhost:3000/api/product/processProduct', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include', // Include cookies if necessary for authentication
+                    body: JSON.stringify({ product: parsedProduct, amazon_results: amazonResults })
+                });
+
+                console.log('Processing product:', parsedProduct, amazonResults);
+                const data = await response.json();
+
+                console.log('API response:', data);
+                sendResponse({ data }); // Send the API response back to the content script
+            } catch (error) {
+                console.error('Error calling API:', error);
+                sendResponse({ error: error.message });
+            }
+        })();
+
+        // Return true to indicate that the response is asynchronous
+        return true;
+    } 
 });
 
 // Helper function for sleep
@@ -205,12 +230,13 @@ async function extractSellerAmpResults() {
         sellerAmpResults.push({
             asin: asin,
             title: title,
+            price: buyBox,
+            image_url: imageUrl,
+            product_url: `https://www.amazon.com/dp/${asin}`,
             upc: upc,
-            buyBox: buyBox,
             bsr: bsr,
-            maxCost: maxCost,
+            max_cost: maxCost,
             offers: offers,
-            imageUrl: imageUrl
         });
     });
     

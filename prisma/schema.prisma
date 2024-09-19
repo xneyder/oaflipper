@@ -45,18 +45,22 @@ model Product {
 
 // AmazonProduct model
 model AmazonProduct {
-  id                   Int            @id @default(autoincrement())
-  asin                 String         @unique
-  title                String         @db.Text
-  product_url          String         @unique @db.Text
-  image_url            String         @db.Text
+  id                   Int     @id @default(autoincrement())
+  asin                 String  @unique
+  title                String  @db.Text
+  product_url          String  @unique @db.Text
+  image_url            String  @db.Text
   amazon_buy_box_count Int?
   current_sellers      Int?
   buy_box_price        Float?
   last_seen_price      String?
-  created_date         DateTime       @default(now())
-  updated_date         DateTime       @updatedAt
-  product_matches      ProductMatch[] @relation("AmazonProduct_ProductMatches") // Renamed relation
+  upc                  String?
+  bsr                  String?
+  max_cost             String?
+  offers               String?
+  created_date    DateTime       @default(now())
+  updated_date    DateTime       @updatedAt
+  product_matches ProductMatch[] @relation("AmazonProduct_ProductMatches") // Renamed relation
 
   @@index([asin]) // Index on asin
   @@schema("public")
@@ -67,7 +71,7 @@ model ProductMatch {
   id                Int      @id @default(autoincrement())
   product_id        Int
   amazon_product_id Int
-  manual_invalid   Boolean  @default(false)
+  manual_invalid    Boolean  @default(false)
   created_date      DateTime @default(now())
   updated_date      DateTime @updatedAt
 
