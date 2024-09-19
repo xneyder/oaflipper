@@ -1,9 +1,9 @@
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === 'searchAmazon') {
+    if (message.action === 'searchAmp') {
         const productTitle = message.product.title;
 
-        // Open a new tab in Chrome to search Amazon
-        chrome.tabs.create({ url: 'https://www.amazon.com', active: true }, function (tab) {
+        // Open a new tab in Chrome to search SellerAmp
+        chrome.tabs.create({ url: 'https://sas.selleramp.com/', active: true }, function (tab) {
             chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo, tab) {
                 if (tabId === tab.id && changeInfo.status === 'complete') {
                     console.log(`Tab ${tabId} is fully loaded. Injecting content script.`);
@@ -18,34 +18,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         // Return true to indicate we will send a response asynchronously
         return true;
-    } else if (message.action === 'processProduct') {
-        const { parsedProduct, amazonResults } = message;
-        // Use async function to handle the message
-        (async () => {
-            try {
-                const response = await fetch('http://localhost:3000/api/product/processProduct', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include', // Include cookies if necessary for authentication
-                    body: JSON.stringify({ product: parsedProduct, amazon_results: amazonResults })
-                });
-
-                console.log('Processing product:', parsedProduct, amazonResults);
-                const data = await response.json();
-
-                console.log('API response:', data);
-                sendResponse({ data }); // Send the API response back to the content script
-            } catch (error) {
-                console.error('Error calling API:', error);
-                sendResponse({ error: error.message });
-            }
-        })();
-
-        // Return true to indicate that the response is asynchronous
-        return true;
-    }  else if (message.action === 'closeCurrentTab') {
-        console.log("Closing tab with ID:", sender.tab.id);
-        chrome.tabs.remove(sender.tab.id);
     }
 });
 
@@ -54,12 +26,12 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Function to inject the content script with retry mechanism and a delay before injecting
+// Function to inject the content script with retry mechanism
 async function injectScriptWithRetry(tabId, productTitle, sendResponse, attempt) {
     const maxAttempts = 3;
     const retryDelay = 2000; // 2 seconds
 
-    chrome.tabs.get(tabId, function(tab) {
+    chrome.tabs.get(tabId, function (tab) {
         if (chrome.runtime.lastError || !tab) {
             console.error(`Error getting tab or tab is closed: ${chrome.runtime.lastError ? chrome.runtime.lastError.message : 'Tab not found'}`);
             sendResponse({ error: 'Tab not found or has been closed' });
@@ -70,10 +42,11 @@ async function injectScriptWithRetry(tabId, productTitle, sendResponse, attempt)
             chrome.scripting.executeScript(
                 {
                     target: { tabId: tabId, allFrames: false },  // Inject into the top frame
-                    func: performAmazonSearch,
+                    func: performSellerAmpSearch,
                     args: [productTitle]
                 },
                 async (result) => {
+                    console.log(result);
                     if (chrome.runtime.lastError) {
                         console.error(`Error injecting script: ${chrome.runtime.lastError.message}`);
 
@@ -89,35 +62,35 @@ async function injectScriptWithRetry(tabId, productTitle, sendResponse, attempt)
 
                     // Check if result is valid
                     if (result && result[0] && result[0].result) {
-                        console.log('Amazon search returned results:', result[0].result);
+                        console.log('SellerAmp search returned results:', result[0].result);
 
-                        // Adding another sleep before injecting the scroll and close function
-                        await sleep(1000); // Wait 2 seconds before injecting the scroll and close function
+                        // Sleep for 5 seconds before switching back to tab
+                        await sleep(5000);
 
-                        // Inject the scroll and close function and wait for it to complete before sending the response
-                        chrome.scripting.executeScript(
-                            {
-                                target: { tabId: tabId }, // Ensure the main frame or valid frame is selected
-                                func: scrollAndCloseTab,
-                                args: []
-                            },
-                            () => {
-                                if (chrome.runtime.lastError) {
-                                    console.error(`Error injecting scroll script: ${chrome.runtime.lastError.message}`);
-
-                                    if (attempt < maxAttempts) {
-                                        console.log(`Retrying scroll injection... Attempt ${attempt + 1}/${maxAttempts}`);
-                                        setTimeout(() => injectScriptWithRetry(tabId, productTitle, sendResponse, attempt + 1), retryDelay);
-                                    } else {
-                                        console.error('Max retry attempts reached. Aborting scroll injection.');
-                                        sendResponse({ error: 'Failed to inject scroll script after multiple attempts' });
+                        // Switch back to tab and extract results
+                        chrome.tabs.update(tabId, { active: true }, () => {
+                            sleep(3000).then(() => {
+                                chrome.scripting.executeScript(
+                                    {
+                                        target: { tabId: tabId }, // Ensure the main frame or valid frame is selected
+                                        func: extractSellerAmpResults, // Now extract results
+                                        args: []
+                                    },
+                                    (result) => {
+                                        if (chrome.runtime.lastError) {
+                                            console.error(`Error extracting script: ${chrome.runtime.lastError.message}`);
+                                            sendResponse({ error: 'Failed to extract results' });
+                                        } else if (result[0]?.result) {
+                                            console.log('Results extracted successfully.');
+                                            sendResponse({ results: result[0].result });
+                                        } else {
+                                            console.error('No result returned after extraction.');
+                                            sendResponse({ error: 'No result returned after extraction.' });
+                                        }
                                     }
-                                } else {
-                                    console.log("Scroll and close script executed successfully.");
-                                    sendResponse({ results: result[0].result });
-                                }
-                            }
-                        );
+                                );
+                            });
+                        });
                     } else {
                         console.error('No result returned from the content script');
                         sendResponse({ error: 'No result returned from the content script' });
@@ -128,152 +101,105 @@ async function injectScriptWithRetry(tabId, productTitle, sendResponse, attempt)
     });
 }
 
-function performAmazonSearch(title) {
-    return new Promise((resolve) => {
-        console.log(`Performing Amazon search for: ${title}`);
+// Function to perform a search on SellerAmp and return results
+async function performSellerAmpSearch(title) {
+    console.log(`Performing SellerAmp search for: ${title}`);
 
-        // Check if the search bar exists
-        const searchBar = document.getElementById('twotabsearchtextbox');
-        if (!searchBar) {
-            console.error('Search bar not found');
-            resolve([]);
-            return;
+    try {
+        // Directly query the search input and submit button
+        const searchInput = document.getElementById('saslookup-search_term');
+        const submitButton = document.querySelector('button[type="submit"]');
+
+        if (!searchInput || !submitButton) {
+            console.error('Search input or submit button not found');
+            return [];
         }
 
-        // Perform the search
-        searchBar.value = title;
-        searchBar.form.submit();
+        // Set the search term and submit the form
+        searchInput.value = title;
+        submitButton.click();
 
         console.log('Search submitted, waiting for results to load...');
 
-        // Helper function to extract results
-        function extractAmazonResults() {
-            const results = document.querySelectorAll('.s-main-slot .s-result-item');
-            const amazonResults = [];
+        // Wait for 5 seconds to allow results to load (adjust based on timing)
+        await sleep(5000);
 
-            if (results.length === 0) {
-                console.error('No search results found on the page');
-                return [];
-            }
+        // Extract results after the page loads
+        const results = extractSellerAmpResults();
 
-            for (let i = 0; i < Math.min(15, results.length); i++) {
-                const result = results[i];
-                let productUrl, productTitle, imageUrl, productPrice, asin;
+        return results;
 
-                try {
-                    productUrl = result.querySelector('a.a-link-normal.s-no-outline')?.href ||
-                        result.querySelector('a.a-link-normal')?.href;
-                    productTitle = result.querySelector('span.a-size-base-plus.a-color-base.a-text-normal')?.textContent ||
-                        result.querySelector('span.a-text-normal')?.textContent;
-                    imageUrl = result.querySelector('img.s-image')?.src;
-
-                    // Extract the price
-                    productPrice = result.querySelector('span.a-price span.a-offscreen')?.textContent;
-
-                    // Inline ASIN extraction logic
-                    console.log("Extracting ASIN from URL:", productUrl);
-                    try {
-                        const urlObj = new URL(productUrl);
-                        const asinMatch = urlObj.pathname.match(/\/([A-Z0-9]{10})(?:[/?]|$)/);
-                        if (asinMatch) {
-                            asin = asinMatch[1];
-                            console.log("ASIN found in URL path:", asin);
-                        } else {
-                            // If ASIN is in query parameters
-                            const queryParams = new URLSearchParams(urlObj.search);
-                            if (queryParams.has('url')) {
-                                const decodedUrl = decodeURIComponent(queryParams.get('url'));
-                                const asinFromQuery = decodedUrl.match(/\/([A-Z0-9]{10})(?:[/?]|$)/);
-                                if (asinFromQuery) {
-                                    asin = asinFromQuery[1];
-                                    console.log("ASIN found in decoded query params:", asin);
-                                }
-                            }
-                        }
-                    } catch (error) {
-                        console.error("Error parsing or extracting ASIN from URL:", error);
-                    }
-
-                } catch (e) {
-                    console.error('Error extracting data from search result', e);
-                    continue;
-                }
-
-                if (productUrl && productTitle) {
-                    amazonResults.push({
-                        product_url: productUrl,
-                        title: productTitle,
-                        image_url: imageUrl || null,
-                        price: productPrice || 'Price not available',
-                        asin: asin || 'ASIN not available'
-                    });
-                }
-            }
-
-            if (amazonResults.length > 0) {
-                console.log('Extracted Amazon search results:', amazonResults);
-            } else {
-                console.error('No valid products found');
-            }
-
-            return amazonResults;
-        }
-
-        // Wait for search results to load
-        const observer = new MutationObserver(() => {
-            console.log('MutationObserver detected changes in DOM');
-            const amazonResults = extractAmazonResults();
-            if (amazonResults.length > 0) {
-                observer.disconnect();
-                resolve(amazonResults);
-            }
-        });
-
-        observer.observe(document.body, { childList: true, subtree: true });
-
-        // Fallback in case MutationObserver does not fire
-        setTimeout(() => {
-            console.log('Fallback triggered after waiting 5 seconds');
-            const amazonResults = extractAmazonResults();
-            observer.disconnect(); // Ensure observer disconnects even if fallback is used
-            resolve(amazonResults);
-        }, 5000); // Wait for 5 seconds before using the fallback
-    });
+    } catch (error) {
+        console.error('Error performing SellerAmp search:', error);
+        return [];
+    }
 }
 
-// Function to scroll and close the tab with a random delay
-function scrollAndCloseTab() {
-    function getRandomInt(min, max) {
-        return Math.floor(Math.random() * (max - min + 1)) + min;
+// Helper function to extract SellerAmp results after the page loads
+function extractSellerAmpResults() {
+    console.log('Extracting results...');
+
+    const results = document.querySelectorAll('li .pl-item-container');
+    const sellerAmpResults = [];
+
+    if (results.length === 0) {
+        console.error('No search results found on the page');
+        return [];
     }
 
-    function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+    results.forEach(result => {
+        let asin, upc, buyBox, bsr, maxCost, offers, title, imageUrl;
+
+        try {
+            // Extracting ASIN
+            asin = result.getAttribute('asin') || 'ASIN not found';
+
+            // Extracting Title
+            title = result.querySelector('.productList-title')?.textContent.trim() || 'Title not found';
+
+            // Extracting UPC
+            upc = result.querySelector('.pl-upc-input')?.value.trim() || 'UPC not found';
+
+            // Extracting Buy Box Price
+            buyBox = result.querySelector('.qi-buy-box')?.textContent.trim() || 'Buy Box not found';
+
+            // Extracting Best Sellers Rank (BSR)
+            bsr = result.querySelector('.qi-bsr-pnl .productList-bsr')?.textContent.trim() || 'BSR not found';
+
+            // Extracting Max Cost
+            maxCost = result.querySelector('.qi-max-cost')?.textContent.trim() || 'Max Cost not found';
+
+            // Extracting Offers (FBA, FBM)
+            let fbaOffers = result.querySelector('.fba-offer-cnt')?.textContent.trim() || 'FBA not found';
+            let fbmOffers = result.querySelector('.fbm-offer-cnt')?.textContent.trim() || 'FBM not found';
+            offers = `FBA: ${fbaOffers}, FBM: ${fbmOffers}`;
+
+            // Extracting Image URL
+            imageUrl = result.querySelector('img.pl-image')?.src || 'Image not found';
+
+        } catch (e) {
+            console.error('Error extracting data from search result', e);
+            return;
+        }
+
+        // Add the extracted data to the results array
+        sellerAmpResults.push({
+            asin: asin,
+            title: title,
+            upc: upc,
+            buyBox: buyBox,
+            bsr: bsr,
+            maxCost: maxCost,
+            offers: offers,
+            imageUrl: imageUrl
+        });
+    });
+
+    if (sellerAmpResults.length > 0) {
+        console.log('Extracted SellerAmp search results:', sellerAmpResults);
+    } else {
+        console.error('No valid products found');
     }
 
-    async function scrollPageAndClose() {
-        console.log("Scrolling the page to simulate human interaction...");
-
-        // Scroll down a few times
-        window.scrollBy(0, 300); // Scroll down a bit
-        console.log("Scrolled by 300px");
-        await sleep(1000); // Wait 1 second
-
-        window.scrollBy(0, 600); // Scroll down further
-        console.log("Scrolled by 600px");
-        await sleep(1000); // Wait another second
-
-        window.scrollBy(0, 900); // Scroll down further
-        console.log("Scrolled by 900px");
-
-        // Wait for a random time between 1 and 5 seconds
-        const randomDelay = getRandomInt(1000, 5000);
-        console.log(`Waiting for ${randomDelay} milliseconds before closing the tab...`);
-        await sleep(randomDelay);
-
-        console.log("Closing the tab...");
-        chrome.runtime.sendMessage({ action: 'closeCurrentTab' });
-    }
-
-    scrollPageAndClose();
+    return sellerAmpResults.length > 0 ? sellerAmpResults : [{ title: 'No results', price: 'N/A', url: 'N/A' }];
 }
