@@ -15,7 +15,8 @@
     "http://localhost:3000/*",
     "https://www.cvs.com/*",
     "https://www.amazon.com/*",
-    "https://www.walgreens.com/*"
+    "https://www.walgreens.com/*",
+    "https://sas.selleramp.com/*"
   ],
   "background": {
     "service_worker": "background.js"

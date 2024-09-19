@@ -23,6 +23,7 @@
     async function startWalgreensScrapeCycle() {
         while (true) {
             await scrapeWalgreensPromotions(); // Scroll, process products
+            break;
             const buttonClicked = await clickNextButton(); // Click the button to load the next page
 
             if (!buttonClicked) {
@@ -38,7 +39,7 @@
     async function scrapeWalgreensPromotions() {
         try {
             console.log('Scrolling Walgreens page...');
-            await scrollToBottom();  // Scroll to the bottom of the page with a delay
+            // await scrollToBottom();  // Scroll to the bottom of the page with a delay
 
             await waitForElement('div.owned-brands__container', 10000);
 
@@ -46,7 +47,8 @@
             console.log(`Found ${products.length} products on Walgreens page.`);
 
             let index = 0;
-            for (const product of products) {
+            let product = products[0];
+            // for (const product of products) {
                 try {
                     console.log("Processing product number ", index++, " of ", products.length);
                     const title = extractWalgreensTitle(product);
@@ -66,18 +68,18 @@
                         promotionText: promotionText
                     };
 
-                    const amazonResults = await searchAmazon(parsedProduct);
+                    const amazonResults = await searchAmp(parsedProduct);
                     console.log('Amazon Results:', amazonResults);
 
-                    const apiResponse = await processProduct(parsedProduct, amazonResults);
-                    console.log('API Response:', apiResponse);
+                    // const apiResponse = await processProduct(parsedProduct, amazonResults);
+                    // console.log('API Response:', apiResponse);
 
                     console.log('----------');
                 } catch (err) {
                     console.error('Error processing Walgreens product:', err);
-                    continue;
+                    // continue;
                 }
-            }
+            // }
         } catch (err) {
             console.error('Error scraping Walgreens:', err);
         }
@@ -151,6 +153,31 @@
         });
     }
 
+    async function searchAmp(product) {
+        return new Promise((resolve, reject) => {
+            console.log('Sending searchAmp message to background script with product:', product);
+    
+            chrome.runtime.sendMessage(
+                { action: 'searchAmp', product }, 
+                (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.error('Error communicating with background script:', chrome.runtime.lastError);
+                        reject(chrome.runtime.lastError.message);
+                    } else if (response && response.error) {
+                        console.error('Error in background script response:', response.error);
+                        reject(response.error);
+                    } else if (response && response.results) {
+                        console.log('Received results from background script:', response.results);
+                        resolve(response.results);
+                    } else {
+                        console.error('No response from background script searchAmp');
+                        reject('No response from background script. searchAmp');
+                    }
+                }
+            );
+        });
+    }    
+
     async function processProduct(parsedProduct, amazonResults) {
         return new Promise((resolve, reject) => {
             chrome.runtime.sendMessage(
@@ -161,7 +188,7 @@
                     } else if (response && response.data) {
                         resolve(response.data);
                     } else {
-                        reject('No response from background script.');
+                        reject('No response from background script. processProduct');
                     }
                 }
             );
