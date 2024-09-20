@@ -38,7 +38,7 @@
     async function scrapeWalgreensPromotions() {
         try {
             console.log('Scrolling Walgreens page...');
-            await scrollToBottom();  // Scroll to the bottom of the page with a delay
+            // await scrollToBottom();  // Scroll to the bottom of the page with a delay
 
             await waitForElement('div.owned-brands__container', 10000);
 
@@ -46,22 +46,24 @@
             console.log(`Found ${products.length} products on Walgreens page.`);
 
             let index = 0;
-            // let product = products[0];
+            let product = products[0];
             for (const product of products) {
                 try {
                     console.log("Processing product number ", index++, " of ", products.length);
                     const title = extractWalgreensTitle(product);
-                    const imageUrl = extractWalgreensImageUrl(product);
                     const price = extractWalgreensPrice(product);
                     const productUrl = extractWalgreensProductUrl(product);
                     const promotionText = extractWalgreensPromotionText(product);
+
+                    // Send a message to the background script to open a new tab and get the image
+                    const imageUrl = await fetchImageFromTab(productUrl);
 
                     console.log(`Product: ${title}\nPrice: ${price}\nImage URL: ${imageUrl}\nProduct URL: ${productUrl}\nPromotion: ${promotionText}`);
 
                     const parsedProduct = {
                         title: title,
                         price: price,
-                        image_urls: [imageUrl],
+                        image_urls: imageUrl,
                         product_url: productUrl,
                         source: 'walgreens',
                         promotionText: promotionText
@@ -83,6 +85,23 @@
             console.error('Error scraping Walgreens:', err);
         }
         console.log("Finished scraping Walgreens");
+    }
+
+    async function fetchImageFromTab(productUrl) {
+        return new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage(
+                { action: 'openProductTabForImage', productUrl }, // Send message to the background script to open a new tab and get the image
+                (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(chrome.runtime.lastError.message);
+                    } else if (response && response.imageUrl) {
+                        resolve(response.imageUrl);
+                    } else {
+                        reject('No response from background script for fetching the image.');
+                    }
+                }
+            );
+        });
     }
 
     async function clickNextButton() {
@@ -107,27 +126,6 @@
             }
         }
         console.log('Page loaded, continuing with the scraping.');
-    }
-
-    // Scroll function to scroll the page with a delay and check when no more content is being loaded
-    async function scrollToBottom() {
-        let currentPosition = 0;
-        let previousPosition = -1;
-        let maxTries = 10;  // Try 10 times to ensure no more content is loading
-
-        while (currentPosition !== previousPosition && maxTries > 0) {
-            previousPosition = currentPosition;
-            window.scrollBy(0, 1000);  // Scroll down by 1000px
-            await sleep(1000);  // Sleep for 1 second
-            currentPosition = window.scrollY;
-            const newScrollHeight = document.body.scrollHeight;
-
-            if (currentPosition + window.innerHeight >= newScrollHeight) {
-                maxTries--;
-            }
-        }
-
-        console.log('Finished scrolling.');
     }
 
     // Sleep function
@@ -261,22 +259,6 @@
         return `${brand} ${description} ${size}`.trim();
     }
     
-    function extractWalgreensImageUrl(productElement) {
-        let imgTag = productElement.querySelector('figure.product__img img');
-    
-        if (!imgTag) {
-            imgTag = productElement.querySelector('figure.product__img');
-        }
-    
-        let imageUrl = imgTag ? imgTag.src || imgTag.getAttribute('src') : '';
-    
-        if (imageUrl && imageUrl.startsWith('//')) {
-            imageUrl = 'https:' + imageUrl;
-        }
-    
-        return imageUrl || 'No valid image URL found';
-    }
-
     function extractWalgreensPrice(productElement) {
         const priceSpan = productElement.querySelector('span.body-medium.bold');
         return priceSpan ? priceSpan.textContent.trim() : 'No price found';

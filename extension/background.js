@@ -43,7 +43,49 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         // Return true to indicate that the response is asynchronous
         return true;
-    } 
+    } else if (message.action === 'openProductTabForImage') {
+        const { productUrl } = message;
+        
+        // Open product in a new tab to scrape the image
+        chrome.tabs.create({ url: productUrl, active: false }, function (tab) {
+            chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo) {
+                if (tabId === tab.id && changeInfo.status === 'complete') {
+                    console.log(`Tab ${tabId} is fully loaded for product: ${productUrl}`);
+                    
+                    // Inject script to get the image URL from the newly opened tab
+                    chrome.scripting.executeScript(
+                        {
+                            target: { tabId: tabId, allFrames: false },
+                            func: scrapeProductImage, // This function will return only the image
+                        },
+                        (result) => {
+                            if (chrome.runtime.lastError) {
+                                console.error(`Error injecting script: ${chrome.runtime.lastError.message}`);
+                                sendResponse({ error: chrome.runtime.lastError.message });
+                            } else if (result[0]?.result) {
+                                console.log('Scraped product image:', result[0].result);
+                                
+                                // Close the tab after scraping the image
+                                chrome.tabs.remove(tabId, () => {
+                                    console.log(`Closed tab ${tabId}`);
+                                    sendResponse({ imageUrl: result[0].result });
+                                });
+                            } else {
+                                console.error('Failed to scrape product image');
+                                sendResponse({ error: 'Failed to scrape product image' });
+                            }
+                        }
+                    );
+                    
+                    // Remove listener once tab is processed
+                    chrome.tabs.onUpdated.removeListener(listener);
+                }
+            });
+        });
+
+        // Return true to indicate the response will be sent asynchronously
+        return true;
+    }
 });
 
 // Helper function for sleep
@@ -109,7 +151,7 @@ async function injectScriptWithRetry(tabId, productTitle, sendResponse, attempt)
                                             sendResponse({ results: result[0].result });
                                             // Uncomment this if you want to close the tab after scraping
                                             chrome.tabs.remove(tabId, () => {
-                                                    console.log(`Tab ${tabId} closed successfully.`);
+                                                console.log(`Tab ${tabId} closed successfully.`);
                                             });
                                         } else {
                                             console.error('No result returned after extraction.');
@@ -159,7 +201,7 @@ async function performSellerAmpSearch(title) {
     }
 }
 
-
+// Function to extract results from SellerAmp after search
 async function extractSellerAmpResults() {
     console.log('Extracting results...');
 
@@ -247,4 +289,11 @@ async function extractSellerAmpResults() {
     }
 
     return sellerAmpResults.length > 0 ? sellerAmpResults : [{ title: 'No results', price: 'N/A', url: 'N/A' }];
+}
+
+// Function to scrape product image from a new tab
+function scrapeProductImage() {
+    // Extract only the image URL from the page
+    const imageUrl = document.querySelector('#productImg')?.src || 'No image URL found';
+    return imageUrl;
 }

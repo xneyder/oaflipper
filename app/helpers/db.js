@@ -45,6 +45,8 @@ async function uploadScreenshotToS3(screenshotBase64) {
 export async function insertOrUpdateDataToDB(productData, amazonData) {
   try {
 
+    console.log(`Processing product: ${productData.image_urls}`);
+
     // Upsert the product in the database (insert or update)
     const product = await prisma.product.upsert({
       where: { product_url: productData.product_url },

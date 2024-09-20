@@ -21,21 +21,25 @@ const AmazonProductCard = ({ product, finalPrice }) => {
 
   if (!product) return null;
 
-  // Remove the dollar sign and convert last_seen_price to a float
+  // Convert last_seen_price (buy box price) and max_cost to float after removing dollar signs
   const lastSeenPrice = parseFloat(product.last_seen_price.replace("$", ""));
+  const maxCost = parseFloat(product.max_cost.replace("$", ""));
 
-  // Calculate the variable referral fee based on the sale price
-  const referralFeePercentage = lastSeenPrice > 10 ? 0.15 : 0.08; // 15% if above $10, else 8%
-  const referralFee = lastSeenPrice * referralFeePercentage;
+  // Calculate the ROI value for 25% profit: ROIValue = buy box price / 1.25
+  const ROIValue = lastSeenPrice / 1.25;
 
-  const monthlyStorageFee = 0.41; // Constant from the screenshot
-  const fulfillmentFee = 4.5; // Constant from the screenshot
+  // Determine fees calculation based on whether ROIValue is less than or greater than 3
+  let fees;
+  if (ROIValue < 3) {
+    // If ROIValue is less than 3, use the current fees calculation
+    fees = lastSeenPrice - maxCost - 3;
+  } else {
+    // If ROIValue is greater than or equal to 3, use the new fees calculation
+    fees = lastSeenPrice - ROIValue - 3;
+  }
 
-  // Calculate total fees
-  const totalFees = referralFee + monthlyStorageFee + fulfillmentFee;
-
-  // Calculate profit based on user's cost input
-  const profit = lastSeenPrice - totalFees - parseFloat(cost || 0); // Subtracting user's cost
+  // Calculate profit using the formula: profit = buy box price - cost - fees
+  const profit = lastSeenPrice - parseFloat(cost || 0) - fees;
 
   return (
     <Card>
@@ -53,8 +57,10 @@ const AmazonProductCard = ({ product, finalPrice }) => {
         <div className="text-center">
           <p><strong>ASIN:</strong> {product.asin}</p>
           <p><strong>Buy Box Price:</strong> ${lastSeenPrice.toFixed(2)}</p>
-          <p><strong>Sellers:</strong> {product.current_sellers}</p>
+          <p><strong>Offers:</strong> {product.offers}</p>
+          <p><strong>BSR:</strong> {product.bsr}</p>
           <p><strong>Amazon Buy Box Count:</strong> {product.amazon_buy_box_count}</p>
+          <p><strong>Max Cost:</strong> ${maxCost.toFixed(2)}</p>
 
           {/* Input for user's cost (auto-populated with finalPrice) */}
           <div className="mt-4">
@@ -71,11 +77,11 @@ const AmazonProductCard = ({ product, finalPrice }) => {
             />
           </div>
 
-          {/* Display profit based on user's cost */}
+          {/* Display profit */}
           <div className="mt-4">
             <p
               style={{
-                color: profit >= 0 ? "green" : "red", // Show green if profit is positive, red if negative
+                color: profit < 3 ? "red" : "green", // Red if profit < 3, green if profit >= 3
                 fontWeight: "bold",
               }}
             >

@@ -15,7 +15,7 @@ export default function Matches() {
   const [finalPrices, setFinalPrices] = useState({});
   const [page, setPage] = useState(1); // Track current page
   const [totalProducts, setTotalProducts] = useState(0); // Track total number of products
-  const limit = 10; // Define how many products to show per page
+  const limit = 20; // Define how many products to show per page
 
   // Fetch products function
   const fetchProducts = async (page) => {
