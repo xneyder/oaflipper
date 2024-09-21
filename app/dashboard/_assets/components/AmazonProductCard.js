@@ -25,21 +25,17 @@ const AmazonProductCard = ({ product, finalPrice }) => {
   const lastSeenPrice = parseFloat(product.last_seen_price.replace("$", ""));
   const maxCost = parseFloat(product.max_cost.replace("$", ""));
 
-  // Calculate the ROI value for 25% profit: ROIValue = buy box price / 1.25
-  const ROIValue = lastSeenPrice / 1.25;
+  // Calculate the fees required to achieve a 25% ROI
+  const fees = lastSeenPrice - 1.25 * maxCost;
 
-  // Determine fees calculation based on whether ROIValue is less than or greater than 3
-  let fees;
-  if (ROIValue < 3) {
-    // If ROIValue is less than 3, use the current fees calculation
-    fees = lastSeenPrice - maxCost - 3;
-  } else {
-    // If ROIValue is greater than or equal to 3, use the new fees calculation
-    fees = lastSeenPrice - ROIValue - 3;
-  }
-
-  // Calculate profit using the formula: profit = buy box price - cost - fees
+  // Calculate profit: Profit = Buy Box Price - Cost - Fees
   const profit = lastSeenPrice - parseFloat(cost || 0) - fees;
+
+  // Calculate the actual ROI based on the user's input cost
+  const actualROI = (profit / parseFloat(cost || 1)) * 100; // Avoid division by zero with cost defaulting to 1 if empty
+
+  // New rule: profit is red if less than 3, otherwise check for 25% ROI
+  const isProfitRed = profit < 3;
 
   return (
     <Card>
@@ -60,7 +56,16 @@ const AmazonProductCard = ({ product, finalPrice }) => {
           <p><strong>Offers:</strong> {product.offers}</p>
           <p><strong>BSR:</strong> {product.bsr}</p>
           <p><strong>Amazon Buy Box Count:</strong> {product.amazon_buy_box_count}</p>
-          <p><strong>Max Cost:</strong> ${maxCost.toFixed(2)}</p>
+          
+          {/* Display fees */}
+          <div className="mt-4">
+            <p><strong>Fees:</strong> ${fees.toFixed(2)}</p>
+          </div>
+
+          {/* Display max cost */}
+          <div className="mt-4">
+            <p><strong>Max Cost:</strong> ${maxCost.toFixed(2)}</p>
+          </div>
 
           {/* Input for user's cost (auto-populated with finalPrice) */}
           <div className="mt-4">
@@ -81,11 +86,23 @@ const AmazonProductCard = ({ product, finalPrice }) => {
           <div className="mt-4">
             <p
               style={{
-                color: profit < 3 ? "red" : "green", // Red if profit < 3, green if profit >= 3
+                color: isProfitRed ? "red" : "green", // Red if profit < 3, green otherwise
                 fontWeight: "bold",
               }}
             >
               Profit: ${profit.toFixed(2)}
+            </p>
+          </div>
+
+          {/* Display the actual ROI */}
+          <div className="mt-4">
+            <p
+              style={{
+                color: actualROI >= 25 ? "green" : "red", // Green if actual ROI is 25% or above, red otherwise
+                fontWeight: "bold",
+              }}
+            >
+              Actual ROI: {actualROI.toFixed(2)}%
             </p>
           </div>
         </div>

@@ -63,7 +63,7 @@ const SourceProductCard = ({ product, discount, onFinalPriceChange }) => {
       </CardHeader>
       <CardContent>
         <img
-          src={product.image_urls[0]}
+          src={product.image_urls}
           alt={product.title}
           style={{ width: '400px', height: '400px' }}
         />
