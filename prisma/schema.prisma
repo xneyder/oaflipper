@@ -58,6 +58,7 @@ model AmazonProduct {
   bsr                  String?
   max_cost             String?
   offers               String?
+  fees                 String?
   created_date         DateTime       @default(now())
   updated_date         DateTime       @updatedAt
   product_matches      ProductMatch[] @relation("AmazonProduct_ProductMatches") // Renamed relation

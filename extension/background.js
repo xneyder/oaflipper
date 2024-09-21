@@ -45,13 +45,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     } else if (message.action === 'openProductTabForImage') {
         const { productUrl } = message;
-        
-        // Open product in a new tab to scrape the image
-        chrome.tabs.create({ url: productUrl, active: false }, function (tab) {
-            chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo) {
+        let attempts = 0;
+        const maxAttempts = 3;
+    
+        function tryScrapeProductImage(tab) {
+            const timeoutDuration = 5000; // 5 seconds
+            let timeoutId;
+    
+            // Listener function for when the tab is updated
+            const listener = (tabId, changeInfo) => {
                 if (tabId === tab.id && changeInfo.status === 'complete') {
                     console.log(`Tab ${tabId} is fully loaded for product: ${productUrl}`);
-                    
+    
+                    // Clear the timeout because the page has loaded within the allowed time
+                    clearTimeout(timeoutId);
+    
                     // Inject script to get the image URL from the newly opened tab
                     chrome.scripting.executeScript(
                         {
@@ -64,7 +72,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                                 sendResponse({ error: chrome.runtime.lastError.message });
                             } else if (result[0]?.result) {
                                 console.log('Scraped product image:', result[0].result);
-                                
+    
                                 // Close the tab after scraping the image
                                 chrome.tabs.remove(tabId, () => {
                                     console.log(`Closed tab ${tabId}`);
@@ -76,16 +84,41 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                             }
                         }
                     );
-                    
-                    // Remove listener once tab is processed
+    
+                    // Remove listener after the tab is fully loaded and the script is injected
                     chrome.tabs.onUpdated.removeListener(listener);
                 }
-            });
+            };
+    
+            // Set up a timeout that will refresh the tab if it doesn't load within 5 seconds
+            timeoutId = setTimeout(() => {
+                attempts++;
+                if (attempts < maxAttempts) {
+                    console.log(`Page load timeout. Retrying (${attempts}/${maxAttempts})...`);
+                    chrome.tabs.reload(tab.id); // Refresh the tab
+                } else {
+                    console.error('Max attempts reached. Failed to scrape product image.');
+                    chrome.tabs.onUpdated.removeListener(listener);
+                    chrome.tabs.remove(tab.id, () => {
+                        console.log(`Closed tab ${tab.id} after max retries.`);
+                        sendResponse({ error: 'Failed to scrape product image after multiple attempts' });
+                    });
+                }
+            }, timeoutDuration);
+    
+            // Add the listener for the tab update event
+            chrome.tabs.onUpdated.addListener(listener);
+        }
+    
+        // Open product in a new tab to scrape the image
+        chrome.tabs.create({ url: productUrl, active: false }, function (tab) {
+            tryScrapeProductImage(tab); // Start the image scraping attempt
         });
-
+    
         // Return true to indicate the response will be sent asynchronously
         return true;
     }
+    
 });
 
 // Helper function for sleep
