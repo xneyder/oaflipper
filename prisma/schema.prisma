@@ -72,6 +72,7 @@ model ProductMatch {
   product_id        Int
   amazon_product_id Int
   manual_invalid    Boolean  @default(false)
+  to_buy            Boolean  @default(false)
   created_date      DateTime @default(now())
   updated_date      DateTime @updatedAt
 

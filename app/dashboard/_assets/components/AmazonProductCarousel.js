@@ -12,27 +12,49 @@ import {
 import AmazonProductCard from "@/app/dashboard/_assets/components/AmazonProductCard";
 
 const AmazonProductCarousel = ({ products, finalPrice }) => {
-  const [api, setApi] = React.useState(null); 
+  const [filteredProducts, setFilteredProducts] = React.useState(() => {
+    return products.filter((productMatch) => {
+      const product = productMatch.AmazonProduct;
+
+      // Calculate the fees and profit here
+      const lastSeenPrice = parseFloat(product.last_seen_price.replace("$", ""));
+      const referralFeePercentage = lastSeenPrice > 10 ? 0.15 : 0.08;
+      const referralFee = lastSeenPrice * referralFeePercentage;
+      const monthlyStorageFee = 0.41;
+      const fulfillmentFee = 4.5;
+
+      // Calculate total fees and profit
+      const totalFees = referralFee + monthlyStorageFee + fulfillmentFee;
+      const profit = lastSeenPrice - totalFees - parseFloat(finalPrice || 0); // Subtracting finalPrice from the SourceProductCard
+
+      return profit >= 1; // Keep only products with profit >= 1
+    });
+  });
+
+  const [api, setApi] = React.useState(null);
   const [current, setCurrent] = React.useState(0);
   const [count, setCount] = React.useState(0);
 
-  // Filter out Amazon products with a profit less than 1
-  const filteredProducts = products.filter((productMatch) => {
-    const product = productMatch.AmazonProduct;
-    
-    // Calculate the fees and profit here
-    const lastSeenPrice = parseFloat(product.last_seen_price.replace("$", ""));
-    const referralFeePercentage = lastSeenPrice > 10 ? 0.15 : 0.08;
-    const referralFee = lastSeenPrice * referralFeePercentage;
-    const monthlyStorageFee = 0.41;
-    const fulfillmentFee = 4.5;
+  // Handle product removal after it's invalidated
+  const handleRemoveProduct = (productMatchId) => {
+    setFilteredProducts((prevProducts) =>
+      prevProducts.filter((productMatch) => productMatch.id !== productMatchId)
+    );
+  };
 
-    // Calculate total fees and profit
-    const totalFees = referralFee + monthlyStorageFee + fulfillmentFee;
-    const profit = lastSeenPrice - totalFees - parseFloat(finalPrice || 0); // Subtracting finalPrice from the SourceProductCard
+  // Handle the next item in the carousel
+  const handleNextProduct = () => {
+    if (api && current < count - 1) {
+      api.scrollTo(current);  // Move to the next slide
+    }
+  };
 
-    return profit >= 1; // Keep only products with profit >= 1
-  });
+  // Handle the previous item in the carousel
+  const handlePrevProduct = () => {
+    if (api && current > 0) {
+      api.scrollTo(current - 2);  // Move to the previous slide
+    }
+  };
 
   React.useEffect(() => {
     if (!api) return;
@@ -55,9 +77,17 @@ const AmazonProductCarousel = ({ products, finalPrice }) => {
         <CarouselContent>
           {filteredProducts.map((productMatch, index) => (
             <CarouselItem key={index}>
-              <Card className="flex justify-center items-center p-4"> 
+              <Card className="flex justify-center items-center p-4">
                 <CardContent>
-                  <AmazonProductCard product={productMatch.AmazonProduct} finalPrice={finalPrice} />
+                  <AmazonProductCard
+                    product={productMatch.AmazonProduct}
+                    productMatchId={productMatch.id}
+                    finalPrice={finalPrice}
+                    onRemove={handleRemoveProduct}  // Pass the handleRemoveProduct function
+                    onNext={handleNextProduct}      // Pass the handleNextProduct function
+                    onPrev={handlePrevProduct}      // Pass the handlePrevProduct function
+                    toBuyDb={productMatch.to_buy}
+                  />
                 </CardContent>
               </Card>
             </CarouselItem>

@@ -46,7 +46,7 @@
             console.log(`Found ${products.length} products on Walgreens page.`);
 
             let index = 0;
-            let product = products[0];
+            // let product = products[0];
             for (const product of products) {
                 try {
                     console.log("Processing product number ", index++, " of ", products.length);

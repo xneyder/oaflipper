@@ -9,15 +9,68 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-const AmazonProductCard = ({ product, finalPrice }) => {
+const AmazonProductCard = ({ product, productMatchId, finalPrice, onRemove, onNext, onPrev, toBuyDb }) => {
   const [cost, setCost] = useState(0); // State for input cost
+  const [toBuy, setToBuy] = useState(toBuyDb); // Initialize to the value from the database
 
   useEffect(() => {
     // Set the cost to the final price whenever finalPrice changes
     if (finalPrice) {
       setCost(finalPrice); // Set the cost input field with the finalPrice
     }
-  }, [finalPrice]); // Re-run this when finalPrice changes
+  }, [finalPrice]);
+
+  const handleNoMatch = async () => {
+    try {
+      const response = await fetch('/api/product/invalidate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ productMatchId }), // Pass the productMatchId
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('Failed to mark no match:', result.error);
+        return;
+      }
+
+      console.log('Product marked as No Match successfully.');
+      // Call the onRemove function passed from the carousel
+      onRemove(productMatchId);
+    } catch (error) {
+      console.error('Error marking no match:', error);
+    }
+  };
+
+  const handleToBuy = async () => {
+    try {
+      const response = await fetch('/api/product/to_buy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ productMatchId, toBuy: !toBuy }), // Toggle to_buy status
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('Failed to toggle buy status:', result.error);
+        return;
+      }
+
+      console.log(`Product ${!toBuy ? 'marked as' : 'unmarked from'} to buy successfully.`);
+      // Toggle the to_buy state
+      setToBuy(!toBuy);
+      // Move to next product after action
+      onNext();
+    } catch (error) {
+      console.error('Error toggling buy status:', error);
+    }
+  };
 
   if (!product) return null;
 
@@ -55,21 +108,14 @@ const AmazonProductCard = ({ product, finalPrice }) => {
           <p><strong>Buy Box Price:</strong> ${lastSeenPrice.toFixed(2)}</p>
           <p><strong>Offers:</strong> {product.offers}</p>
           <p><strong>BSR:</strong> {product.bsr}</p>
-          <p><strong>Amazon Buy Box Count:</strong> {product.amazon_buy_box_count}</p>
-          
           {/* Display fees */}
-          <div className="mt-4">
-            <p><strong>Fees:</strong> ${fees.toFixed(2)}</p>
-          </div>
+          <p><strong>Fees:</strong> ${fees.toFixed(2)}</p>
 
-          {/* Display max cost */}
-          <div className="mt-4">
-            <p><strong>Max Cost:</strong> ${maxCost.toFixed(2)}</p>
-          </div>
+          <p><strong>Max Cost:</strong> ${maxCost.toFixed(2)}</p>
 
           {/* Input for user's cost (auto-populated with finalPrice) */}
-          <div className="mt-4">
-            <label htmlFor="cost" className="block font-semibold">
+          <div className="flex items-center space-x-2">
+            <label htmlFor="cost" className="font-semibold">
               Enter Your Cost:
             </label>
             <input
@@ -83,34 +129,65 @@ const AmazonProductCard = ({ product, finalPrice }) => {
           </div>
 
           {/* Display profit */}
-          <div className="mt-4">
-            <p
-              style={{
-                color: isProfitRed ? "red" : "green", // Red if profit < 3, green otherwise
-                fontWeight: "bold",
-              }}
-            >
-              Profit: ${profit.toFixed(2)}
-            </p>
-          </div>
+          <p
+            style={{
+              color: isProfitRed ? "red" : "green", // Red if profit < 3, green otherwise
+              fontWeight: "bold",
+            }}
+          >
+            Profit: ${profit.toFixed(2)}
+          </p>
 
-          {/* Display the actual ROI */}
-          <div className="mt-4">
-            <p
-              style={{
-                color: actualROI >= 25 ? "green" : "red", // Green if actual ROI is 25% or above, red otherwise
-                fontWeight: "bold",
-              }}
-            >
-              Actual ROI: {actualROI.toFixed(2)}%
-            </p>
-          </div>
+          <p
+            style={{
+              color: actualROI >= 25 ? "green" : "red", // Green if actual ROI is 25% or above, red otherwise
+              fontWeight: "bold",
+            }}
+          >
+            ROI: {actualROI.toFixed(2)}%
+          </p>
         </div>
       </CardContent>
       <CardFooter className="text-center">
-        <a href={product.product_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-          View on Amazon
+
+        {/* Add the "Prev" button */}
+        <button
+          onClick={onPrev}
+          className="ml-4 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+        >
+          Prev
+        </button>
+
+        <a href={product.product_url} target="_blank" rel="noopener noreferrer">
+          <button className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+            Amazon
+          </button>
         </a>
+
+        {/* Add the "No Match" button */}
+        <button
+          onClick={handleNoMatch}
+          className="ml-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+        >
+          No Match
+        </button>
+
+        {/* Toggle between "Buy" and "Not Buy" based on the `toBuy` state */}
+        <button
+          onClick={handleToBuy}
+          className={`ml-4 px-4 py-2 ${toBuy ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-500 hover:bg-green-600'} text-white rounded`}
+        >
+          {toBuy ? 'Not Buy' : 'Buy'}
+        </button>
+
+        {/* Add the "Next" button */}
+        <button
+          onClick={onNext}
+          className="ml-4 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+        >
+          Next
+        </button>
+
       </CardFooter>
     </Card>
   );

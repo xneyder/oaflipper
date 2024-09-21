@@ -30,11 +30,17 @@ export async function GET(req) {
       .select(`
         *,
         ProductMatch (
+          *,
           AmazonProduct (*)
         )
       `, { count: 'exact' })
+      .eq('ProductMatch.manual_invalid', false) 
       .order("updated_date", { ascending: false }) // 'exact' to get the total number of rows
       .range(offset, offset + limit - 1);  // Paginate the result
+
+
+    
+
 
     if (error) {
       throw error;
