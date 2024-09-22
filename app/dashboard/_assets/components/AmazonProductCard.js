@@ -78,10 +78,8 @@ const AmazonProductCard = ({ product, productMatchId, finalPrice, onRemove, onNe
   const lastSeenPrice = parseFloat(product.last_seen_price.replace("$", ""));
   const maxCost = parseFloat(product.max_cost.replace("$", ""));
 
-  // get the prodit with the max cost and 25% ROI
-  const min_profit=(25*maxCost)/100
-  // Calculate the fees required to achieve a 25% ROI
-  const fees = lastSeenPrice - min_profit - maxCost;
+  // Use the fees directly from the product object
+  const fees = parseFloat(product.fees);
 
   // Calculate profit: Profit = Buy Box Price - Cost - Fees
   const profit = lastSeenPrice - parseFloat(cost || 0) - fees;

@@ -24,7 +24,7 @@ export async function POST(req) {
             return NextResponse.json({ message: 'Invalid request, missing product or amazon_results' }, { status: 400 });
         }
         
-        // console.log('Product:', product);
+        console.log('Product:', product);
         // console.log('Amazon Results:', amazon_results);
         
         // Call the processProduct function

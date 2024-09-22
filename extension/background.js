@@ -1,5 +1,87 @@
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === 'searchAmp') {
+    if (message.action === 'fetchFees') {
+        const asin = message.asin;
+    
+        chrome.tabs.create({ url: 'https://sas.selleramp.com/', active: false }, function (tab) {
+            chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo) {
+                if (tabId === tab.id && changeInfo.status === 'complete') {
+                    console.log(`Tab ${tabId} is fully loaded. Searching for ASIN: ${asin}`);
+    
+                    // Inject search logic to input ASIN and fetch fees
+                    chrome.scripting.executeScript(
+                        {
+                            target: { tabId: tabId, allFrames: false },
+                            func: (asin) => {
+                                const searchInput = document.getElementById('saslookup-search_term');
+                                const submitButton = document.querySelector('button[type="submit"]');
+    
+                                if (searchInput && submitButton) {
+                                    searchInput.value = asin;
+                                    submitButton.click();
+                                }
+    
+                                return 'Search triggered';
+                            },
+                            args: [asin]
+                        },
+                        async (results) => {
+                            if (chrome.runtime.lastError) {
+                                console.error(`Error fetching fees: ${chrome.runtime.lastError.message}`);
+                                sendResponse({ error: `Failed to fetch fees for ASIN: ${asin}` });
+                            } else {
+                                console.log(`Search triggered for ASIN ${asin}. Waiting 5 seconds for results to load...`);
+    
+                                // Add a 5-second sleep after the ASIN search is triggered
+                                await new Promise(resolve => setTimeout(resolve, 3000));
+    
+                                // Inject script to extract the fees after waiting
+                                chrome.scripting.executeScript(
+                                    {
+                                        target: { tabId: tabId, allFrames: false },
+                                        func: () => {
+                                            return new Promise((resolve) => {
+                                                const observer = new MutationObserver((mutationsList, observer) => {
+                                                    const feeElement = document.querySelector('#saslookup-total_fee');
+                                                    if (feeElement) {
+                                                        observer.disconnect();
+                                                        resolve(feeElement.textContent.trim());
+                                                    }
+                                                });
+    
+                                                observer.observe(document.body, { childList: true, subtree: true });
+                                            });
+                                        }
+                                    },
+                                    (results) => {
+                                        if (chrome.runtime.lastError) {
+                                            console.error(`Error fetching fees: ${chrome.runtime.lastError.message}`);
+                                            sendResponse({ error: `Failed to fetch fees for ASIN: ${asin}` });
+                                        } else {
+                                            const fees = results[0]?.result || 'Fees not found';
+                                            console.log(`Fees for ASIN ${asin}: ${fees}`);
+    
+                                            // Close the tab after fetching the fees
+                                            chrome.tabs.remove(tabId, () => {
+                                                console.log(`Tab ${tabId} closed successfully.`);
+                                                sendResponse({ fees });
+                                            });
+                                        }
+                                    }
+                                );
+                            }
+                        }
+                    );
+    
+                    // Remove listener after tab is updated and script executed
+                    chrome.tabs.onUpdated.removeListener(listener);
+                }
+            });
+        });
+    
+        // Return true to indicate async response
+        return true;
+    }
+     else if (message.action === 'searchAmp') {
         const productTitle = message.product.title;
         
         // Open a new tab in Chrome to search SellerAmp
@@ -47,19 +129,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const { productUrl } = message;
         let attempts = 0;
         const maxAttempts = 3;
-    
+
         function tryScrapeProductImage(tab) {
             const timeoutDuration = 5000; // 5 seconds
             let timeoutId;
-    
+
             // Listener function for when the tab is updated
             const listener = (tabId, changeInfo) => {
                 if (tabId === tab.id && changeInfo.status === 'complete') {
                     console.log(`Tab ${tabId} is fully loaded for product: ${productUrl}`);
-    
+
                     // Clear the timeout because the page has loaded within the allowed time
                     clearTimeout(timeoutId);
-    
+
                     // Inject script to get the image URL from the newly opened tab
                     chrome.scripting.executeScript(
                         {
@@ -72,7 +154,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                                 sendResponse({ error: chrome.runtime.lastError.message });
                             } else if (result[0]?.result) {
                                 console.log('Scraped product image:', result[0].result);
-    
+
                                 // Close the tab after scraping the image
                                 chrome.tabs.remove(tabId, () => {
                                     console.log(`Closed tab ${tabId}`);
@@ -84,12 +166,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                             }
                         }
                     );
-    
+
                     // Remove listener after the tab is fully loaded and the script is injected
                     chrome.tabs.onUpdated.removeListener(listener);
                 }
             };
-    
+
             // Set up a timeout that will refresh the tab if it doesn't load within 5 seconds
             timeoutId = setTimeout(() => {
                 attempts++;
@@ -105,20 +187,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     });
                 }
             }, timeoutDuration);
-    
+
             // Add the listener for the tab update event
             chrome.tabs.onUpdated.addListener(listener);
         }
-    
+
         // Open product in a new tab to scrape the image
         chrome.tabs.create({ url: productUrl, active: false }, function (tab) {
             tryScrapeProductImage(tab); // Start the image scraping attempt
         });
-    
+
         // Return true to indicate the response will be sent asynchronously
         return true;
     }
-    
 });
 
 // Helper function for sleep
@@ -126,7 +207,7 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Function to inject the content script with retry mechanism
+// Function to inject the content script with retry mechanism for SellerAmp
 async function injectScriptWithRetry(tabId, productTitle, sendResponse, attempt) {
     const maxAttempts = 3;
     const retryDelay = 2000; // 2 seconds
@@ -182,7 +263,7 @@ async function injectScriptWithRetry(tabId, productTitle, sendResponse, attempt)
                                         } else if (result[0]?.result) {
                                             console.log('Results extracted successfully.');
                                             sendResponse({ results: result[0].result });
-                                            // Uncomment this if you want to close the tab after scraping
+                                            // Close the tab after scraping
                                             chrome.tabs.remove(tabId, () => {
                                                 console.log(`Tab ${tabId} closed successfully.`);
                                             });
@@ -234,7 +315,7 @@ async function performSellerAmpSearch(title) {
     }
 }
 
-// Function to extract results from SellerAmp after search
+// Function to extract results from SellerAmp after search, including fetching fees for each product ASIN
 async function extractSellerAmpResults() {
     console.log('Extracting results...');
 
@@ -242,9 +323,23 @@ async function extractSellerAmpResults() {
     function sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
-    
+
+    // Function to open a new tab, search for the ASIN, extract fees, and close the tab
+    async function fetchFeesForASIN(asin) {
+        return new Promise((resolve, reject) => {
+            // chrome.tabs.create needs to be used in the background or popup script, not in content scripts
+            chrome.runtime.sendMessage({ action: 'fetchFees', asin: asin }, (response) => {
+                if (response.error) {
+                    reject(response.error);
+                } else {
+                    resolve(response.fees);
+                }
+            });
+        });
+    }
+
     const loadMoreButton = document.querySelector('#productList-loadmore > a');
-    
+
     if (loadMoreButton) {
         console.log('Found Load More button, triggering click...');
         loadMoreButton.click();
@@ -257,50 +352,54 @@ async function extractSellerAmpResults() {
 
     const results = document.querySelectorAll('li .pl-item-container');
     const sellerAmpResults = [];
-    
+
     if (results.length === 0) {
         console.error('No search results found on the page');
         return [];
     }
 
-    results.forEach(result => {
-        let asin, upc, buyBox, bsr, maxCost, offers, title, imageUrl;
-        
+    for (const result of results) {
+        let asin, upc, buyBox, bsr, maxCost, offers, title, imageUrl, fees;
+
         try {
             // Extracting ASIN
             asin = result.getAttribute('asin') || 'ASIN not found';
-            
+
             // Extracting Title
             title = result.querySelector('.productList-title')?.textContent.trim() || 'Title not found';
-            
+
             // Extracting UPC
             upc = result.querySelector('.pl-upc-input')?.value.trim() || 'UPC not found';
-            
+
             // Extracting Buy Box Price
             buyBox = result.querySelector('.qi-buy-box')?.textContent.trim() || 'Buy Box not found';
-            
+
             // Extracting Best Sellers Rank (BSR)
             bsr = result.querySelector('.qi-bsr-pnl .productList-bsr')?.textContent.trim() || 'BSR not found';
-            
+
             // Extracting Max Cost
             maxCost = result.querySelector('.qi-max-cost')?.textContent.trim() || 'Max Cost not found';
-            
+
             // Extracting Offers (AMZ, FBA, FBM)
             let amzOffer = result.querySelector('.amz-on-listing') ? 'AMZ: 1' : 'AMZ: 0';
             let fbaOffers = result.querySelector('.fba-offer-cnt')?.textContent.trim() || 'FBA not found';
             let fbmOffers = result.querySelector('.fbm-offer-cnt')?.textContent.trim() || 'FBM not found';
-            
+
             // Concatenating the offers
             offers = `${amzOffer}, FBA: ${fbaOffers}, FBM: ${fbmOffers}`;
-            
+
             // Extracting Image URL
             imageUrl = result.querySelector('img.pl-image')?.src || 'Image not found';
-            
+
+            // Fetch fees for ASIN by sending a message to the background script
+            fees = await fetchFeesForASIN(asin);
+            console.log(`Fees for ASIN ${asin}: ${fees}`);
+
         } catch (e) {
             console.error('Error extracting data from search result', e);
             return;
         }
-        
+
         // Add the extracted data to the results array
         sellerAmpResults.push({
             asin: asin,
@@ -312,21 +411,23 @@ async function extractSellerAmpResults() {
             bsr: bsr,
             max_cost: maxCost,
             offers: offers,
+            fees: fees
         });
-    });
-    
+    }
+
     if (sellerAmpResults.length > 0) {
         console.log('Extracted SellerAmp search results:', sellerAmpResults);
     } else {
         console.error('No valid products found');
     }
 
-    return sellerAmpResults.length > 0 ? sellerAmpResults : [{ title: 'No results', price: 'N/A', url: 'N/A' }];
+    return sellerAmpResults.length > 0 ? sellerAmpResults : [{ title: 'No results', price: 'N/A', url: 'N/A', fees: 'N/A' }];
 }
 
-// Function to scrape product image from a new tab
+
+
+// Function to scrape product image from a new tab for Walgreens
 function scrapeProductImage() {
-    // Extract only the image URL from the page
     const imageUrl = document.querySelector('#productImg')?.src || 'No image URL found';
     return imageUrl;
 }
