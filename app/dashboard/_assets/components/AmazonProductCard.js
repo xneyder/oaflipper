@@ -78,11 +78,16 @@ const AmazonProductCard = ({ product, productMatchId, finalPrice, onRemove, onNe
   const lastSeenPrice = parseFloat(product.last_seen_price.replace("$", ""));
   const maxCost = parseFloat(product.max_cost.replace("$", ""));
 
-  // Use the fees directly from the product object
-  const fees = parseFloat(product.fees);
+  // Clean and convert fees (remove spaces, $, and convert to float)
+  const fees = parseFloat(product.fees.replace(/\s+/g, '').replace('$', ''));
 
   // Calculate profit: Profit = Buy Box Price - Cost - Fees
   const profit = lastSeenPrice - parseFloat(cost || 0) - fees;
+
+  // If the profit is less than 0, do not render the card
+  if (profit < 0) {
+    return null; // Hide the card if profit is less than 0
+  }
 
   // Calculate the actual ROI based on the user's input cost
   const actualROI = (profit / parseFloat(cost || 1)) * 100; // Avoid division by zero with cost defaulting to 1 if empty
