@@ -85,7 +85,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const productTitle = message.product.title;
         
         // Open a new tab in Chrome to search SellerAmp
-        chrome.tabs.create({ url: 'https://sas.selleramp.com/', active: true }, function (tab) {
+        chrome.tabs.create({ url: 'https://sas.selleramp.com/', active: false }, function (tab) {
             chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo, tab) {
                 if (tabId === tab.id && changeInfo.status === 'complete') {
                     console.log(`Tab ${tabId} is fully loaded. Injecting content script.`);
@@ -248,7 +248,7 @@ async function injectScriptWithRetry(tabId, productTitle, sendResponse, attempt)
                         await sleep(5000);
                         
                         // Switch back to tab and extract results
-                        chrome.tabs.update(tabId, { active: true }, () => {
+                        chrome.tabs.update(tabId, { active: false }, () => {
                             sleep(3000).then(() => {
                                 chrome.scripting.executeScript(
                                     {
