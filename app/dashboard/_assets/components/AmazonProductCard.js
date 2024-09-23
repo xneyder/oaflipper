@@ -124,10 +124,28 @@ const AmazonProductCard = ({ product, productMatchId, finalPrice, onRemove, onNe
               Enter Your Cost:
             </label>
             <input
-              type="number"
+              type="text" // Change to text to allow expressions like 2*3 or 3.5+4.2
               id="cost"
               value={cost}
-              onChange={(e) => setCost(e.target.value)}
+              onChange={(e) => setCost(e.target.value)} // Keep updating the value in the state
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  try {
+                    // Allow only numbers, decimal points, and basic math operators in the input
+                    const sanitizedInput = e.target.value.replace(/[^-()\d/*+.]/g, '');
+
+                    // Evaluate the sanitized input using eval()
+                    const result = eval(sanitizedInput); 
+
+                    // If eval returns a number, update the state with the result
+                    if (!isNaN(result)) {
+                      setCost(result); // Set the calculated result as the new cost
+                    }
+                  } catch (error) {
+                    console.error('Invalid input:', error);
+                  }
+                }
+              }}
               className="border p-2"
               placeholder="Enter cost in USD"
             />
@@ -177,6 +195,14 @@ const AmazonProductCard = ({ product, productMatchId, finalPrice, onRemove, onNe
           No Match
         </button>
 
+        {/* Add the "Next" button */}
+        <button
+          onClick={onNext}
+          className="ml-4 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+        >
+          Next
+        </button>
+
         {/* Toggle between "Buy" and "Not Buy" based on the `toBuy` state */}
         <button
           onClick={handleToBuy}
@@ -185,13 +211,6 @@ const AmazonProductCard = ({ product, productMatchId, finalPrice, onRemove, onNe
           {toBuy ? 'Not Buy' : 'Buy'}
         </button>
 
-        {/* Add the "Next" button */}
-        <button
-          onClick={onNext}
-          className="ml-4 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-        >
-          Next
-        </button>
 
       </CardFooter>
     </Card>
